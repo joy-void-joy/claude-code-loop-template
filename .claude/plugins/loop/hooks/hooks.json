@@ -1,0 +1,32 @@
+{
+  "description": "Loop workflow hooks: pre-push quality checks and test file protection",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/pre_push_check.py",
+            "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/check_plan_md.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/protect_tests.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

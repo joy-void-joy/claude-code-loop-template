@@ -1,0 +1,13 @@
+{
+  "name": "local",
+  "owner": {
+    "name": "Local Plugins"
+  },
+  "plugins": [
+    {
+      "name": "loop",
+      "description": "Self-improvement loop scaffold: feedback collection, trace analysis, and meta-level reflection for any agent domain",
+      "source": "./.claude/plugins/loop"
+    }
+  ]
+}
