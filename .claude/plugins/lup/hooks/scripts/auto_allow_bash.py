@@ -1,47 +1,55 @@
 #!/usr/bin/env python3
 """PreToolUse hook that controls Bash permissions via regex patterns.
 
-Decision order:
-1. Check command against DENY_PATTERNS -> deny with reason
-2. Check command against ALLOW_PATTERNS -> auto-allow
-3. Fall through -> defer to user (ask)
+Rules are evaluated like .gitignore: all patterns are checked top-to-bottom,
+and the last matching rule wins. If no rule matches, the decision falls
+through to the user (ask).
 """
 
 import json
 import re
 import sys
 
+from typing import Literal
+
 from pydantic import BaseModel, ValidationError
 
+
+class Allow(BaseModel):
+    action: Literal["allow"] = "allow"
+    pattern: str
+    reason: str = "Auto-allowed: command matches allowlist"
+
+
+class Deny(BaseModel):
+    action: Literal["deny"] = "deny"
+    pattern: str
+    reason: str = "Denied: command matches denylist"
+
+
 # ---------------------------------------------------------------------------
-# Configuration: edit these lists to control Bash permissions
+# Configuration: rules evaluated top-to-bottom, last match wins
 # ---------------------------------------------------------------------------
 
-ALLOW_PATTERNS: list[str] = [
-    r"^ls\b",
-    r"^grep\b",
-    r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b",
-    r"^uv (sync|add|remove|lock)\b",
-    r"^uv run (pyright|pytest|ruff)\b",
-    r"^uv run \S+ --help$",
-    r"^uv run (python )?\.claude/plugins/lup/scripts/",
-    r"^uv run (python )?\./tmp/\S+\.py\b",
-]
-
-DENY_PATTERNS: list[tuple[str, str]] = [
-    # Block inline python execution -- create a script instead
-    (
-        r"^uv run python3? -c",
-        "Denied: inline python -c is not allowed. Create a script in .claude/plugins/lup/scripts/ or ./tmp/ instead.",
+RULES: list[Allow | Deny] = [
+    # Safe read-only / common commands
+    Allow(pattern=r"^ls\b"),
+    Allow(pattern=r"^grep\b"),
+    # Git (safe subset)
+    Allow(pattern=r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b"),
+    # uv package management
+    Allow(pattern=r"^uv (sync|add|remove|lock)\b"),
+    Allow(pattern=r"^uv run (pyright|pytest|ruff)\b"),
+    Allow(pattern=r"^uv run \S+ --help$"),
+    # Block all python invocations...
+    Deny(
+        pattern=r"(^|\b)python3?\b",
+        reason="Denied: python is only allowed for scripts in .claude/plugins/lup/scripts/ or ./tmp/."
+        " Create a script there instead.",
     ),
-    (
-        r"^uv run python3? <<",
-        "Denied: heredoc python is not allowed. Create a script in .claude/plugins/lup/scripts/ or ./tmp/ instead.",
-    ),
-    (
-        r"^python3? ",
-        "Denied: bare python is not allowed. Use 'uv run python' or create a script in .claude/plugins/lup/scripts/.",
-    ),
+    # ...except scripts in allowed folders (overrides the deny above)
+    Allow(pattern=r"^uv run (python )?\.claude/plugins/lup/scripts/"),
+    Allow(pattern=r"^uv run (python )?\./tmp/\S+\.py\b"),
 ]
 
 # ---------------------------------------------------------------------------
@@ -85,16 +93,16 @@ def _deny(reason: str) -> HookOutput:
 
 def decide(command: str) -> HookOutput | None:
     cmd = command.strip()
+    result: HookOutput | None = None
 
-    for pattern, reason in DENY_PATTERNS:
-        if re.search(pattern, cmd):
-            return _deny(reason)
+    for rule in RULES:
+        if re.search(rule.pattern, cmd):
+            if rule.action == "allow":
+                result = _allow(rule.reason)
+            else:
+                result = _deny(rule.reason)
 
-    for pattern in ALLOW_PATTERNS:
-        if re.search(pattern, cmd):
-            return _allow()
-
-    return None
+    return result
 
 
 def main() -> None:

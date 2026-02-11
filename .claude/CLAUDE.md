@@ -453,7 +453,7 @@ Permissions are managed by **PreToolUse hook scripts** in `.claude/plugins/lup/h
 | Hook | Tool | Config |
 |---|---|---|
 | `auto_allow_fetch.py` | WebFetch | `ALLOW_PATTERNS` (regex), `DENY_PATTERNS` (regex + reason) |
-| `auto_allow_bash.py` | Bash | `ALLOW_PATTERNS` (regex), `DENY_PATTERNS` (regex + reason) |
+| `auto_allow_bash.py` | Bash | `RULES` list of `Allow`/`Deny` (last-match-wins, like .gitignore) |
 | `auto_allow_edits.py` | Edit | Trivial-line counting, protected file list |
 | `pre_push_check.py` | Bash (git push) | Runs pyright, ruff, pytest before push |
 | `check_plan_md.py` | Bash (git push) | Warns if PLAN.md missing on feature branches |
