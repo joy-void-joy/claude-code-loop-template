@@ -31,6 +31,17 @@ from claude_agent_sdk import AgentDefinition
 # =============================================================================
 # TOOL LISTS (customize for your domain)
 # =============================================================================
+#
+# Use functions (not constants) so tool lists can be computed at runtime
+# based on available API keys, session context, etc.
+#
+# Example with conditional inclusion:
+#   def _research_tools() -> list[str]:
+#       from loop.agent.config import settings
+#       tools = ["WebSearch", "WebFetch", "Read", "Glob"]
+#       if settings.exa_api_key:
+#           tools.append("mcp__search__search_exa")
+#       return tools
 
 
 def _research_tools() -> list[str]:
@@ -131,8 +142,17 @@ analyzer = AgentDefinition(
 # EXPORTED SUBAGENTS
 # =============================================================================
 
-SUBAGENTS = {
-    "researcher": researcher,
-    "analyzer": analyzer,
-    # Add more subagents for your domain
-}
+
+def get_subagents() -> dict[str, AgentDefinition]:
+    """Build subagent definitions at runtime.
+
+    Using a factory function (not a module constant) allows:
+    - Tool lists computed from current settings/API keys
+    - Context-dependent subagent configuration
+    - Runtime reconfiguration between sessions
+    """
+    return {
+        "researcher": researcher,
+        "analyzer": analyzer,
+        # Add more subagents for your domain
+    }

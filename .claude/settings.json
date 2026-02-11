@@ -1,29 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:docs.claude.com)",
-      "WebFetch(domain:ai.pydantic.dev)",
-      "WebSearch",
-      "Bash(grep:*)",
-      "Bash(ls *)",
-      "Bash(uv run pyright *)",
-      "Bash(uv run pytest:*)",
-      "Bash(uv run python .claude/plugins/loop/scripts/*)",
-      "Bash(uv run ruff *)",
-      "Bash(uv run * --help)",
-      "Bash(git commit:*)",
-      "Bash(git add *)",
-      "Bash(git commit *)"
+      "WebSearch"
     ],
     "deny": [
-      "Read(./**/*.local*)",
-      "Bash(uv run python -c *)",
-      "Bash(uv run python -c\"*)",
-      "Bash(uv run python -c'*)",
-      "Bash(uv run python << *)",
-      "Bash(uv run python <<'*)",
-      "Bash(python *)",
-      "Bash(python3 *)"
+      "Read(./**/*.local*)"
     ],
     "ask": [
       "Edit(./**/pyproject.toml)"
@@ -36,5 +17,14 @@
     "agent-sdk-dev@claude-plugins-official": true,
     "commit-commands@claude-plugins-official": true,
     "claude-md-management@claude-plugins-official": true
-  }
+  },
+  "extraKnownMarketplaces": {
+    "local": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "coauthorship": false
 }

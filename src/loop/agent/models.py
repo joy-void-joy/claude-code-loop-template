@@ -97,6 +97,7 @@ class SessionResult(BaseModel):
 
     session_id: str
     task_id: str | None = Field(default=None, description="Domain-specific task ID")
+    agent_version: str = Field(default="", description="Agent version that produced this result")
     timestamp: str
     output: AgentOutput
     reasoning: str = Field(default="", description="Raw reasoning text")

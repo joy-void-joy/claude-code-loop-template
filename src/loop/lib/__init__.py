@@ -40,8 +40,21 @@ from loop.lib.metrics import (
 )
 from loop.lib.notes import NotesConfig, path_is_under, setup_notes
 from loop.lib.responses import mcp_error, mcp_response, mcp_success
+from loop.lib.scoring import (
+    append_score_row,
+    read_scores_csv,
+    read_scores_for_task,
+    read_scores_for_version,
+    rebuild_scores_csv,
+)
 from loop.lib.retry import with_retry
-from loop.lib.trace import TraceLogger, format_block_markdown, print_block
+from loop.lib.trace import (
+    TraceLogger,
+    format_block_markdown,
+    normalize_content,
+    print_block,
+    truncate_content,
+)
 
 __all__ = [
     # Cache
@@ -83,8 +96,16 @@ __all__ = [
     "mcp_success",
     # Retry
     "with_retry",
+    # Scoring
+    "append_score_row",
+    "read_scores_csv",
+    "read_scores_for_task",
+    "read_scores_for_version",
+    "rebuild_scores_csv",
     # Trace
     "TraceLogger",
     "format_block_markdown",
+    "normalize_content",
     "print_block",
+    "truncate_content",
 ]

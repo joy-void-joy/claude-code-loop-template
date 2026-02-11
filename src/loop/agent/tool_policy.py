@@ -43,7 +43,10 @@ BUILTIN_TOOLS: frozenset[str] = frozenset({
     "Task",
 })
 
-# TODO: Define tool sets for your domain
+# Define named tool sets for each API dependency.
+# Each set groups tools that share the same API key requirement.
+# This makes it clear which tools degrade when a key is missing.
+#
 # Example:
 # EXA_TOOLS: frozenset[str] = frozenset({
 #     "mcp__search__search_exa",

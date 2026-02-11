@@ -130,6 +130,16 @@ class Settings(BaseSettings):
         description="Timeout for HTTP requests",
     )
 
+    # ==========================================================================
+    # RATE LIMITS / CONCURRENCY
+    # ==========================================================================
+
+    max_concurrent_requests: int = Field(
+        default=5,
+        validation_alias="AGENT_MAX_CONCURRENT_REQUESTS",
+        description="Max concurrent external API requests",
+    )
+
 
 # Singleton instance
 settings = Settings.model_validate({})
