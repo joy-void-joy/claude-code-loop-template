@@ -12,7 +12,7 @@ Usage:
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, TypedDict
 
 import httpx
 import typer
@@ -56,8 +56,6 @@ DAY_COLORS = [
 
 
 # ── types ────────────────────────────────────────────────
-
-from typing import TypedDict
 
 
 class UsageBucket(TypedDict):
@@ -273,7 +271,9 @@ def render_bucket(
     out.append("\n")
 
     pace_line = [" "] * (bar_width + 2)
-    linear_pos = min(int((linear_pct / 100) * bar_width), len(pace_line) - len(pace_label))
+    linear_pos = min(
+        int((linear_pct / 100) * bar_width), len(pace_line) - len(pace_label)
+    )
     for j, ch in enumerate(pace_label):
         pos = linear_pos + j
         if 0 <= pos < len(pace_line):
@@ -329,7 +329,13 @@ def build_display(
         out.append(f"  ({util:.0f}%)", style="bold")
         out.append("\n")
 
-        fill_color = "bright_green" if util < 50 else "bright_yellow" if util < 80 else "bright_red"
+        fill_color = (
+            "bright_green"
+            if util < 50
+            else "bright_yellow"
+            if util < 80
+            else "bright_red"
+        )
         filled = min(int((util / 100) * bar_width), bar_width)
         out.append("  ")
         for i in range(bar_width):
@@ -374,7 +380,9 @@ def build_display(
                     out.append("·" * day_bar_w, style="bright_black")
                     out.append("\n")
                 else:
-                    filled = max(1, int((total / max_day) * day_bar_w)) if total > 0 else 0
+                    filled = (
+                        max(1, int((total / max_day) * day_bar_w)) if total > 0 else 0
+                    )
                     out.append("█" * filled, style=DAY_COLORS[color_idx])
                     out.append("░" * (day_bar_w - filled), style="bright_black")
                     out.append(f" {fmt_tokens(total):>5}", style="bold")
@@ -395,7 +403,9 @@ def build_display(
             if totals:
                 out.append("  models", style="bold bright_white")
                 out.append("  ")
-                for model, tokens in sorted(totals.items(), key=lambda x: x[1], reverse=True):
+                for model, tokens in sorted(
+                    totals.items(), key=lambda x: x[1], reverse=True
+                ):
                     name = MODEL_NAMES.get(model, model)
                     pct = tokens / week_total * 100 if week_total > 0 else 0
                     out.append(f"● {name} ", style=model_color(model))
@@ -428,7 +438,9 @@ def main(
     try:
         usage = fetch_usage()
     except httpx.HTTPStatusError as e:
-        console.print(f"[red]API error: {e.response.status_code} {e.response.text[:200]}[/red]")
+        console.print(
+            f"[red]API error: {e.response.status_code} {e.response.text[:200]}[/red]"
+        )
         raise typer.Exit(1) from e
     except httpx.ConnectError as e:
         console.print(f"[red]Connection failed: {e}[/red]")
