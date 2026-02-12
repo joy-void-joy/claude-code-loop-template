@@ -22,6 +22,37 @@ Built with Python 3.13+ and the Claude Agent SDK. Uses `uv` as the package manag
   - **Environment Subpackage** (`src/lup/environment/`): Domain-specific scaffolding (user interaction, game logic, etc.). Evolves with application requirements, but not via the feedback loop.
 - **Three-Level Meta Analysis**: Object (agent behavior), Meta (agent self-tracking), Meta-Meta (feedback loop process).
 
+### The Bitter Lesson
+
+The single most important principle for improving this agent: **give it more tools and capabilities, not more rules.**
+
+| Do This | Not This |
+|---------|----------|
+| Add tools that provide data | Add prompt rules that constrain behavior |
+| Apply general principles | Apply specific pattern patches |
+| Provide state/context via tools | Use f-string prompt engineering |
+| Create subagents for specialized work | Build complex pipelines in main agent |
+
+**Tools are the primary scaffold.** When the agent struggles, the answer is almost always a missing tool — not a missing prompt paragraph. A tool that returns the right data at the right time is worth more than any amount of prompt engineering.
+
+**The test:** Does this change add a capability, or just a rule? Would it still help if the domain changed completely? If not, it's over-fitted.
+
+### Tool Design Philosophy
+
+Tools are the interface between the agent and its environment. They outlast any particular prompt revision, and they compose — each new tool multiplies the agent's options rather than constraining them.
+
+**Prompts rot; tools don't.** Tool names and sets change as the agent evolves. If the prompt lists them, every addition or rename means updating two places that can drift apart. Letting the agent discover tools through their descriptions keeps the prompt focused on *what to do* and *how to reason* — things that stay stable.
+
+**The tool description is the contract.** It's the only documentation the agent sees for a tool. When the agent misuses a tool or ignores one it should use, the description is usually the problem. A good description answers:
+
+1. **What** — What does this tool do? (concrete behavior, not vague summary)
+2. **When** — When should the agent reach for this tool? (triggers, conditions)
+3. **Why** — Why does this tool exist? (what problem it solves, what gap it fills)
+
+Compare: `"Search the web for information"` vs. `"Search the web using keyword queries. Use this when the agent needs current information not available in local data, or when verifying claims against external sources. Exists because the agent has no built-in knowledge of events after its training cutoff. Returns a list of {title, url, snippet} results ordered by relevance."`
+
+The first leaves the agent guessing about when and why. The second makes the tool self-selecting — the agent can match its situation to the description without prompt-level instructions.
+
 ---
 
 # Getting Started
@@ -562,16 +593,7 @@ When the user provides documentation links, incorporate that knowledge into CLAU
 
 # Self-Improvement Loop
 
-### The Bitter Lesson
-
-When improving the agent, prefer:
-
-| Do This | Not This |
-|---------|----------|
-| Add tools that provide data | Add prompt rules that constrain behavior |
-| Apply general principles | Apply specific pattern patches |
-| Provide state/context via tools | Use f-string prompt engineering |
-| Create subagents for specialized work | Build complex pipelines in main agent |
+See [The Bitter Lesson](#the-bitter-lesson) and [Tool Design Philosophy](#tool-design-philosophy) above — these are the governing principles for all agent improvements.
 
 ### Three Levels of Analysis
 
@@ -623,6 +645,8 @@ Configuration is loaded via pydantic-settings. See `src/lup/agent/config.py` for
 
 - Adding numeric patches ("subtract 10% from estimates")
 - Adding rules the agent can't act on (no access to required data)
+- Listing tools by name in the system prompt (creates two sources of truth that drift apart)
+- Writing terse tool descriptions (the agent can't use a tool well if it doesn't know when or why)
 - Skipping trace analysis to jump to aggregate statistics
 - Over-engineering initial implementations
 - Making changes in `lup.environment` when `lup.agent` is the right place
