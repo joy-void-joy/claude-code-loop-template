@@ -410,7 +410,7 @@ If you find yourself running the same command repeatedly, **create a script** in
 
 ### Claude Scripts (`scripts/claude/`)
 
-Internal tooling for Claude (the meta-agent). Users don't typically run these directly.
+Internal tooling for Claude (the meta-agent). Users don't typically run these directly. **Only put scripts here that are for Claude's internal use** (API inspection, module introspection, automated commits). User-facing scripts go in `scripts/` directly.
 
 #### inspect_api.py
 
@@ -454,7 +454,16 @@ uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup <name>
 
 ### User Scripts (`scripts/`)
 
-Scripts designed for direct human use.
+Scripts designed for direct human use. **Any script both Claude and the user may run belongs here**, not in `scripts/claude/`.
+
+#### usage.py
+
+Display live Claude Code usage with pacing bars. Fetches real-time utilization from the API (weekly, 5-hour, per-model) and supplements with stats-cache for daily breakdown.
+
+```bash
+uv run python .claude/plugins/lup/scripts/usage.py
+uv run python .claude/plugins/lup/scripts/usage.py --no-detail
+```
 
 #### new_worktree.py
 
