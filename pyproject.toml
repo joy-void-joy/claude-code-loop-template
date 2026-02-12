@@ -1,7 +1,7 @@
 [project]
-name = "loop-template"
+name = "lup-template"
 version = "0.1.0"
-description = "Self-improving agent template with feedback loop"
+description = "Self-improving agent template with feedback loop, built with the Claude Agent SDK"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.13"
@@ -15,6 +15,9 @@ dependencies = [
     "tenacity>=9.0.0",
     "typer>=0.21.1",
 ]
+
+[project.scripts]
+lup = "lup.environment.cli.__main__:app"
 
 [dependency-groups]
 dev = [

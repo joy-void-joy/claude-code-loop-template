@@ -5,7 +5,7 @@ Add fixtures here that are used across multiple test files.
 
 import pytest
 
-from loop.agent.models import AgentOutput, Factor, SessionResult
+from lup.agent.models import AgentOutput, Factor, SessionResult
 
 
 @pytest.fixture

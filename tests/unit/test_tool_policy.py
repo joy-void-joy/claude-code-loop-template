@@ -1,6 +1,6 @@
 """Tests for ToolPolicy class."""
 
-from loop.agent.tool_policy import BUILTIN_TOOLS, ToolPolicy
+from lup.agent.tool_policy import BUILTIN_TOOLS, ToolPolicy
 
 
 class TestToolPolicyToolSets:

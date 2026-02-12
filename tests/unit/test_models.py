@@ -1,6 +1,6 @@
 """Tests for output models."""
 
-from loop.agent.models import AgentOutput, Factor, SessionResult, get_output_schema
+from lup.agent.models import AgentOutput, Factor, SessionResult, get_output_schema
 
 
 class TestAgentOutput:

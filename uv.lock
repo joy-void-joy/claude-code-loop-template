@@ -250,7 +250,7 @@ wheels = [
 ]
 
 [[package]]
-name = "loop-template"
+name = "lup-template"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
