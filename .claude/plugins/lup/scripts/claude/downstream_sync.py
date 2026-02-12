@@ -126,7 +126,7 @@ def ensure_local(proj: dict[str, str]) -> str:
     typer.echo(f"Project '{name}' has no local path or URL configured.")
     typer.echo("\nEither:")
     typer.echo("  1. Add a URL to downstream.json")
-    typer.echo(f"  2. Run: uv run python .claude/plugins/lup/scripts/downstream_sync.py setup {name} /path/to/repo")
+    typer.echo(f"  2. Run: uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup {name} /path/to/repo")
     raise typer.Exit(1)
 
 

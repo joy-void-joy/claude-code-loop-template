@@ -74,8 +74,8 @@ uv run python -m lup.environment.cli loop "task1" "task2" "task3"
 uv run python -m lup.environment.cli loop --no-commit "task1" "task2"
 
 # Commit uncommitted session results
-uv run python .claude/plugins/lup/scripts/commit_results.py
-uv run python .claude/plugins/lup/scripts/commit_results.py --dry-run
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py --dry-run
 
 uv run python -m lup.environment.cli --help
 ```
@@ -111,14 +111,14 @@ Use `/lup:debug <error message>` to trace an error through the logs automaticall
 
 ```bash
 # Collect feedback from sessions
-uv run python .claude/plugins/lup/scripts/feedback_collect.py --all-time
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
 
 # Analyze traces
-uv run python .claude/plugins/lup/scripts/trace_analysis.py list
-uv run python .claude/plugins/lup/scripts/trace_analysis.py show <session_id>
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py list
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py show <session_id>
 
 # Aggregate metrics
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py summary
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py summary
 ```
 
 ---
@@ -167,7 +167,7 @@ Edit `src/lup/version.py`:
 
 ### Step 5: Update Feedback Collection
 
-Edit `.claude/plugins/lup/scripts/feedback_collect.py`:
+Edit `.claude/plugins/lup/scripts/loop/feedback_collect.py`:
 - Implement `load_outcomes()` for your domain
 - Customize `compute_metrics()` for your metrics
 - Add domain-specific summary output
@@ -408,26 +408,55 @@ If you find yourself running the same command repeatedly, **create a script** in
 
 **Write scripts in Python using [typer](https://typer.tiangolo.com/)** for CLI interfaces. Use **[sh](https://sh.readthedocs.io/)** for shell commands instead of `subprocess`.
 
-### inspect_api.py
+### Claude Scripts (`scripts/claude/`)
+
+Internal tooling for Claude (the meta-agent). Users don't typically run these directly.
+
+#### inspect_api.py
 
 Explore package APIs -- never use `python -c "import ..."` or ad-hoc REPL commands.
 
 ```bash
-uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class>
-uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class.method>
-uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class> --help-full
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class>
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class.method>
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class> --help-full
 ```
 
-### module_info.py
+#### module_info.py
 
 Get paths and source code for installed Python modules.
 
 ```bash
-uv run python .claude/plugins/lup/scripts/module_info.py path <module>
-uv run python .claude/plugins/lup/scripts/module_info.py source <module> [--lines N]
+uv run python .claude/plugins/lup/scripts/claude/module_info.py path <module>
+uv run python .claude/plugins/lup/scripts/claude/module_info.py source <module> [--lines N]
 ```
 
-### new_worktree.py
+#### commit_results.py
+
+Commit uncommitted session results (one commit per session).
+
+```bash
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py --dry-run
+```
+
+#### downstream_sync.py
+
+Track upstream repos and review commits since last sync. Used by `/lup:update`.
+
+```bash
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py list
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py log <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py diff <project> <sha>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py mark-synced <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup <name> <path>
+```
+
+### User Scripts (`scripts/`)
+
+Scripts designed for direct human use.
+
+#### new_worktree.py
 
 Create a new git worktree with setup.
 
@@ -437,14 +466,10 @@ uv run python .claude/plugins/lup/scripts/new_worktree.py <name> [--no-sync] [--
 
 Creates worktree, copies `.env.local` and data directories, runs `uv sync`.
 
-### commit_results.py
+### Feedback Loop Scripts (`scripts/loop/`)
 
-Commit uncommitted session results (one commit per session).
-
-```bash
-uv run python .claude/plugins/lup/scripts/commit_results.py
-uv run python .claude/plugins/lup/scripts/commit_results.py --dry-run
-```
+Template scripts for the self-improvement loop. Customize after running `/lup:init`.
+See [Feedback Loop Scripts](#feedback-loop-scripts) above for usage.
 
 ## Permission Hooks
 
@@ -556,7 +581,7 @@ When improving the agent, prefer:
 
 ### Running the Feedback Loop
 
-1. **Collect feedback**: `uv run python .claude/plugins/lup/scripts/feedback_collect.py`
+1. **Collect feedback**: `uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py`
 2. **Read traces deeply**: Don't skip to aggregates. Read 5-10 sessions in detail.
 3. **Extract patterns**: Tool failures, capability requests, reasoning quality
 4. **Implement changes**: Fix tools -> Build requested capabilities -> Simplify prompts

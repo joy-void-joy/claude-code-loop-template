@@ -58,7 +58,7 @@ The ONLY true ground truth is **outcomes**. Everything else is proxy signal.
 
 ```bash
 # Customize this for your domain
-uv run python .claude/plugins/lup/scripts/feedback_collect.py --all-time
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
 ```
 
 **If you have outcome data**: Focus on accuracy/success metrics. This is the REAL signal.
@@ -167,7 +167,7 @@ Check if the data we collect is sufficient for analysis:
 
 ```bash
 # Check what tracking data we have
-uv run python .claude/plugins/lup/scripts/trace_analysis.py list
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py list
 ```
 
 ### 3c. Identify Missing Data
@@ -233,9 +233,9 @@ If you found yourself doing repetitive analysis, automate it:
 
 ```bash
 # Scripts that should exist:
-uv run python .claude/plugins/lup/scripts/feedback_collect.py --help
-uv run python .claude/plugins/lup/scripts/trace_analysis.py --help
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py --help
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --help
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py --help
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py --help
 ```
 
 If you need a script that doesn't exist, create it and document it in CLAUDE.md.
@@ -332,17 +332,17 @@ Write to `notes/feedback_loop/<timestamp>_analysis.md`:
 
 ```bash
 # Collect feedback data
-uv run python .claude/plugins/lup/scripts/feedback_collect.py --all-time
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
 
 # Analyze traces
-uv run python .claude/plugins/lup/scripts/trace_analysis.py show <session_id>
-uv run python .claude/plugins/lup/scripts/trace_analysis.py search "error"
-uv run python .claude/plugins/lup/scripts/trace_analysis.py errors
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py show <session_id>
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py search "error"
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py errors
 
 # Aggregate metrics
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py summary
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py tools
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py by-type
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py summary
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py tools
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py errors
 ```
 
 ## Key Questions to Answer Each Session

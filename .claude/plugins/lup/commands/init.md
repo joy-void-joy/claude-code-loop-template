@@ -176,4 +176,4 @@ Once the scaffolding is generated, guide the user to:
 - `src/<project>/environment/cli/__main__.py` — CLI with loop + auto-commit
 - `src/<project>/lib/scoring.py` — CSV columns and score row building
 - `src/<project>/version.py` — Agent version tracking
-- `.claude/plugins/lup/scripts/feedback_collect.py` — Feedback collection
+- `.claude/plugins/lup/scripts/loop/feedback_collect.py` — Feedback collection

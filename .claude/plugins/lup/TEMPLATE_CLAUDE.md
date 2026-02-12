@@ -55,7 +55,7 @@ uv run python -m <project>.environment.cli run "your task here"
 uv run python -m <project>.environment.cli loop "task1" "task2" "task3"
 
 # Commit uncommitted session results
-uv run python .claude/plugins/lup/scripts/commit_results.py
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py
 
 # Add a new dependency
 uv add <package-name>
@@ -79,14 +79,14 @@ Use `/lup:debug <error message>` to trace an error through the logs automaticall
 
 ```bash
 # Collect feedback from sessions
-uv run python .claude/plugins/lup/scripts/feedback_collect.py --all-time
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
 
 # Analyze traces
-uv run python .claude/plugins/lup/scripts/trace_analysis.py list
-uv run python .claude/plugins/lup/scripts/trace_analysis.py show <session_id>
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py list
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py show <session_id>
 
 # Aggregate metrics
-uv run python .claude/plugins/lup/scripts/aggregate_metrics.py summary
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py summary
 ```
 
 ---
@@ -219,7 +219,7 @@ When improving the agent, prefer:
 
 ### Running the Feedback Loop
 
-1. **Collect feedback**: `uv run python .claude/plugins/lup/scripts/feedback_collect.py`
+1. **Collect feedback**: `uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py`
 2. **Read traces deeply**: Don't skip to aggregates. Read 5-10 sessions in detail.
 3. **Extract patterns**: Tool failures, capability requests, reasoning quality
 4. **Implement changes**: Fix tools -> Build requested capabilities -> Simplify prompts

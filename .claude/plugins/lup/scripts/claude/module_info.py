@@ -2,8 +2,8 @@
 """Get paths and source code for installed Python modules.
 
 Usage:
-    uv run python .claude/plugins/lup/scripts/module_info.py path <module>
-    uv run python .claude/plugins/lup/scripts/module_info.py source <module> [--lines N]
+    uv run python .claude/plugins/lup/scripts/claude/module_info.py path <module>
+    uv run python .claude/plugins/lup/scripts/claude/module_info.py source <module> [--lines N]
 """
 
 import importlib

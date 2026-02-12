@@ -4,9 +4,9 @@
 Never use `python -c "import ..."` or ad-hoc REPL commands - use this script instead.
 
 Usage:
-    uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class>
-    uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class.method>
-    uv run python .claude/plugins/lup/scripts/inspect_api.py <module.Class> --help-full
+    uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class>
+    uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class.method>
+    uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class> --help-full
 """
 
 import importlib

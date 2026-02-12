@@ -293,7 +293,7 @@ def check() -> None:
         print("Previous feedback collections: None")
 
     print("\nTo collect feedback, run:")
-    print("  uv run python .claude/plugins/lup/scripts/feedback_collect.py")
+    print("  uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py")
 
 
 if __name__ == "__main__":

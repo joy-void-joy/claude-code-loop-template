@@ -31,16 +31,23 @@ plugins/lup/
 │   ├── feedback-loop.md         # 3-level meta analysis
 │   └── meta.md                  # This file
 ├── scripts/                     # Python CLI tools
-│   ├── feedback_collect.py      # Session feedback collection
-│   ├── trace_analysis.py        # Reasoning trace inspection
-│   └── aggregate_metrics.py     # Cross-session metrics
+│   ├── claude/                   # Claude (meta-agent) internal tooling
+│   │   ├── inspect_api.py       # Explore Python package APIs
+│   │   ├── module_info.py       # Get module paths and source
+│   │   ├── commit_results.py    # Commit session outputs
+│   │   └── downstream_sync.py   # Track upstream template changes
+│   ├── loop/                    # Feedback loop scripts (templates)
+│   │   ├── feedback_collect.py  # Session feedback collection
+│   │   ├── trace_analysis.py    # Reasoning trace inspection
+│   │   └── aggregate_metrics.py # Cross-session metrics
+│   └── new_worktree.py          # Create git worktrees (user-facing)
 └── agents/                      # Subagent definitions (if needed)
 ```
 
 ### When to Add to the Plugin
 
 - **Commands**: Reusable workflows invoked via `/lup:command-name`
-- **Scripts**: Python CLI tools run via `uv run python .claude/plugins/lup/scripts/X.py`
+- **Scripts**: Python CLI tools. Agent-internal scripts go in `scripts/claude/`, user-facing scripts go in `scripts/`
 - **Agents**: Subagent definitions for specialized tasks
 
 ## Brainstorming Principles

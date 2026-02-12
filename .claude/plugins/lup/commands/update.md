@@ -13,10 +13,10 @@ If `downstream.json` does not exist, help the user set it up:
 
 ```bash
 # Set a local path for the lup template repo
-uv run python .claude/plugins/lup/scripts/downstream_sync.py setup lup /path/to/lup-template.git/tree/main
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup lup /path/to/lup-template.git/tree/main
 
 # Or mark it as already synced at current HEAD (skip old history)
-uv run python .claude/plugins/lup/scripts/downstream_sync.py setup lup /path/to/lup-template.git/tree/main --synced
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup lup /path/to/lup-template.git/tree/main --synced
 ```
 
 Ask the user for the path to their lup template repo if not already tracked.
@@ -26,7 +26,7 @@ Ask the user for the path to their lup template repo if not already tracked.
 ### 1. Check for new commits
 
 ```bash
-uv run python .claude/plugins/lup/scripts/downstream_sync.py list
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py list
 ```
 
 If no projects have new commits, report that everything is up to date and stop.
@@ -36,7 +36,7 @@ If no projects have new commits, report that everything is up to date and stop.
 For each project with new commits:
 
 ```bash
-uv run python .claude/plugins/lup/scripts/downstream_sync.py log <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py log <project>
 ```
 
 Read through the commit history. The commit messages preserve intent — a message like "feat(lib): add TTL cache invalidation" tells you exactly what changed and why.
@@ -46,7 +46,7 @@ Read through the commit history. The commit messages preserve intent — a messa
 For each commit, read the full diff:
 
 ```bash
-uv run python .claude/plugins/lup/scripts/downstream_sync.py diff <project> <sha>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py diff <project> <sha>
 ```
 
 Classify as:
@@ -102,7 +102,7 @@ For approved improvements:
 After review is complete (whether or not changes were applied):
 
 ```bash
-uv run python .claude/plugins/lup/scripts/downstream_sync.py mark-synced <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py mark-synced <project>
 ```
 
 ### 7. Optionally commit
