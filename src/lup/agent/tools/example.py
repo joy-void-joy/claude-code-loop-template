@@ -7,6 +7,15 @@ Key patterns from Claude Agent SDK docs:
 2. Input schema is simple type mapping: {"param": type}
 3. Return {"content": [{"type": "text", "text": "..."}]}
 4. Tool names become: mcp__{server_name}__{tool_name}
+
+Tool descriptions are the agent's only documentation for each tool.
+A terse description forces the agent to guess when/why to use a tool,
+which leads to misuse or underuse. A good description answers:
+  - WHAT: What does this tool do? (concrete behavior)
+  - WHEN: When should the agent use it? (triggers, conditions)
+  - WHY: Why does this tool exist? (what problem it solves)
+This keeps tool knowledge in the tool itself rather than in the prompt,
+so descriptions stay accurate as tools are added or changed.
 """
 
 import json
@@ -23,7 +32,14 @@ from lup.lib import tracked
 
 @tool(
     "search_example",
-    "Example search tool. Replace with your actual search implementation.",
+    (
+        "Search for information using keyword queries. "
+        "Use this when the agent needs to find data that isn't available in local notes "
+        "or when exploring a topic before making decisions. "
+        "Exists because the agent has no built-in knowledge beyond its training data. "
+        "Returns a JSON object with {query, results: [{title, url}], count}. "
+        "Replace this with your actual search implementation."
+    ),
     {"query": str, "limit": int},
 )
 @tracked("search_example")
@@ -37,8 +53,6 @@ async def search_example(args: dict[str, Any]) -> dict[str, Any]:
         MCP response with search results.
     """
     query = args.get("query", "")
-    limit = args.get("limit", 10)
-
     if not query:
         return {
             "content": [{"type": "text", "text": "Error: Query is required"}],
@@ -73,7 +87,15 @@ async def search_example(args: dict[str, Any]) -> dict[str, Any]:
 
 @tool(
     "fetch_example",
-    "Example fetch tool. Replace with your actual fetch implementation.",
+    (
+        "Fetch the full content of a web page by URL. "
+        "Use this when the agent has a specific URL to retrieve — e.g., from search "
+        "results, a known reference, or a link found in notes. "
+        "Exists because the agent cannot browse the web directly; this tool provides "
+        "read access to individual pages. "
+        "Returns a JSON object with {url, content, status}. "
+        "Replace this with your actual fetch implementation."
+    ),
     {"url": str},
 )
 @tracked("fetch_example")
