@@ -1,6 +1,0 @@
-{
-  "name": "loop",
-  "version": "1.0.0",
-  "description": "Self-improvement loop scaffold: feedback collection, trace analysis, and meta-level reflection for any agent domain",
-  "keywords": ["self-improvement", "feedback", "calibration", "meta", "agent-sdk", "scaffold"]
-}

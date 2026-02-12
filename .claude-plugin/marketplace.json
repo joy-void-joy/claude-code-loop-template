@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "loop",
-      "description": "Self-improvement loop scaffold: feedback collection, trace analysis, and meta-level reflection for any agent domain",
-      "source": "./.claude/plugins/loop"
+      "name": "lup",
+      "description": "Lup: self-improving agent scaffold with feedback loop, trace analysis, and meta-level reflection",
+      "source": "./.claude/plugins/lup"
     }
   ]
 }

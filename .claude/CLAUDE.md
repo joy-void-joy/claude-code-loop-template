@@ -8,14 +8,33 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 This is a **self-improving agent template** built with the Claude Agent SDK. The template provides scaffolding for building agents that can review their own traces and improve over time through a structured feedback loop.
 
-Built with Python 3.13+ and the Claude Agent SDK. Uses `uv` as the package manager.
+Built with Python 3.14+ and the Claude Agent SDK. Uses `uv` as the package manager.
+
+### Naming Convention
+
+- **Claude** = the meta-agent (Claude Code) that modifies the codebase, runs commands, and manages the development workflow
+- **Lup** = the SDK agent inside the code being built and improved — the agent that runs via the CLI and produces outputs
 
 ### Key Concepts
 
-- **Loop Package** (`src/loop/`): The package containing all code for the self-improving agent.
-  - **Agent Subpackage** (`src/loop/agent/`): The agent code that the feedback loop improves. Contains core orchestration, tools, subagents, and configuration.
-  - **Environment Subpackage** (`src/loop/environment/`): Domain-specific scaffolding (user interaction, game logic, etc.). Evolves with application requirements, but not via the feedback loop.
 - **Three-Level Meta Analysis**: Object (agent behavior), Meta (agent self-tracking), Meta-Meta (feedback loop process).
+
+### Three-Layer Architecture
+
+The `src/lup/` package has three distinct layers with different purposes and change velocities:
+
+| Layer | Path | Purpose | Changes via |
+|-------|------|---------|-------------|
+| **agent** | `src/lup/agent/` | Agent logistics — the code that makes the agent work and improves over time via the feedback loop. Prompts, tools, subagents, tool policies, orchestration. | Feedback loop |
+| **environment** | `src/lup/environment/` | Interface layer — everything that connects the agent to the outside world. CLI, Discord bot, API server, message debouncing, user interaction. | Application requirements |
+| **lib** | `src/lup/lib/` | Reusable abstractions — code that could be shared across projects. Hooks, tracing, metrics, caching, retries, MCP utilities. | Rarely; when building new capabilities |
+
+**Where does new code go?**
+
+- Agent reasoning, tool selection, prompt engineering → `agent/`
+- Discord message handling, CLI commands, API endpoints → `environment/`
+- Streaming utilities, retry decorators, trace formatting → `lib/`
+- If you'd copy it to another project, it belongs in `lib/`
 
 ---
 
@@ -24,24 +43,24 @@ Built with Python 3.13+ and the Claude Agent SDK. Uses `uv` as the package manag
 ## Reference Files
 
 **Agent (customize for your domain):**
-- **src/loop/agent/core.py**: Main agent orchestration
-- **src/loop/agent/config.py**: Configuration via pydantic-settings
-- **src/loop/agent/models.py**: Output models
-- **src/loop/agent/subagents.py**: Subagent definitions
-- **src/loop/agent/tool_policy.py**: Conditional tool availability
-- **src/loop/agent/tools/example.py**: Example MCP tools
+- **src/lup/agent/core.py**: Main agent orchestration
+- **src/lup/agent/config.py**: Configuration via pydantic-settings
+- **src/lup/agent/models.py**: Output models
+- **src/lup/agent/subagents.py**: Subagent definitions
+- **src/lup/agent/tool_policy.py**: Conditional tool availability
+- **src/lup/agent/tools/example.py**: Example MCP tools
 
 **Library (reusable abstractions):**
-- **src/loop/lib/hooks.py**: Hook utilities and composition
-- **src/loop/lib/trace.py**: Trace logging, output formatting, color-coded console display
-- **src/loop/lib/metrics.py**: Tool call tracking
-- **src/loop/lib/scoring.py**: CSV result tracking and score generation
+- **src/lup/lib/hooks.py**: Hook utilities and composition
+- **src/lup/lib/trace.py**: Trace logging, output formatting, color-coded console display
+- **src/lup/lib/metrics.py**: Tool call tracking
+- **src/lup/lib/scoring.py**: CSV result tracking and score generation
 
 **Top-level:**
-- **src/loop/version.py**: Agent version tracking (bump on behavior changes)
+- **src/lup/version.py**: Agent version tracking (bump on behavior changes)
 
 **Environment:**
-- **src/loop/environment/cli/__main__.py**: Typer CLI with `run` and `loop` (batch + auto-commit) commands
+- **src/lup/environment/cli/__main__.py**: Typer CLI with `run` and `loop` (batch + auto-commit) commands
 
 ## Commands
 
@@ -52,7 +71,7 @@ uv sync
 # Add a new dependency (DO NOT modify pyproject.toml directly)
 uv add <package-name>
 
-# Format and lint
+# Format and lint (run these directly -- never use --check and edit manually)
 uv run ruff format .
 uv run ruff check .
 uv run pyright
@@ -61,18 +80,18 @@ uv run pyright
 uv run pytest
 
 # Run a single agent session
-uv run python -m loop.environment.cli run "your task here"
-uv run python -m loop.environment.cli run --session-id my-session "task"
+uv run python -m lup.environment.cli run "your task here"
+uv run python -m lup.environment.cli run --session-id my-session "task"
 
 # Run multiple sessions with auto-commit
-uv run python -m loop.environment.cli loop "task1" "task2" "task3"
-uv run python -m loop.environment.cli loop --no-commit "task1" "task2"
+uv run python -m lup.environment.cli loop "task1" "task2" "task3"
+uv run python -m lup.environment.cli loop --no-commit "task1" "task2"
 
 # Commit uncommitted session results
-uv run python .claude/plugins/loop/scripts/commit_results.py
-uv run python .claude/plugins/loop/scripts/commit_results.py --dry-run
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py --dry-run
 
-uv run python -m loop.environment.cli --help
+uv run python -m lup.environment.cli --help
 ```
 
 ## Testing
@@ -100,69 +119,69 @@ uv run pytest -k "test_name"
 
 **Do not hypothesize -- trace.** When debugging errors, find the actual logs and read the exact exception. Do not list "likely causes" or suggest the user check things. Open the log files yourself, grep for the error, read the traceback, and report what actually happened. If the logs don't contain enough information, say exactly what logging to add and where, so the error is captured next time.
 
-Use `/loop:debug <error message>` to trace an error through the logs automatically.
+Use `/lup:debug <error message>` to trace an error through the logs automatically.
 
 ## Feedback Loop Scripts
 
 ```bash
 # Collect feedback from sessions
-uv run python .claude/plugins/loop/scripts/feedback_collect.py --all-time
+uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
 
 # Analyze traces
-uv run python .claude/plugins/loop/scripts/trace_analysis.py list
-uv run python .claude/plugins/loop/scripts/trace_analysis.py show <session_id>
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py list
+uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py show <session_id>
 
 # Aggregate metrics
-uv run python .claude/plugins/loop/scripts/aggregate_metrics.py summary
+uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py summary
 ```
 
 ---
 
 # Customization Guide
 
-### Step 1: Run /loop:init
+### Step 1: Run /lup:init
 
-The `/loop:init` command walks you through customizing the template for your domain. It asks about:
+The `/lup:init` command walks you through customizing the template for your domain. It asks about:
 - What your agent does
 - How outcomes/ground truth are measured
 - What metrics matter
 
 ### Step 2: Customize Models
 
-Edit `src/loop/agent/models.py`:
+Edit `src/lup/agent/models.py`:
 - `AgentOutput`: Your agent's structured output format
 - `Factor`: Reasoning factors that influence outputs
 - `SessionResult`: Complete session data for feedback analysis
 
 ### Step 3: Define Subagents
 
-Edit `src/loop/agent/subagents.py`:
+Edit `src/lup/agent/subagents.py`:
 - Create specialized subagents for focused tasks
 - Define which tools each subagent can use
 - Choose appropriate models (cheaper for simple tasks)
 
 ### Step 4: Configure Tools
 
-Edit `src/loop/agent/tool_policy.py`:
+Edit `src/lup/agent/tool_policy.py`:
 - Define tool sets that require API keys
 - Implement conditional availability logic
 - Add MCP server configurations
 
 ### Step 5: Customize Scoring
 
-Edit `src/loop/lib/scoring.py`:
+Edit `src/lup/lib/scoring.py`:
 - Add domain-specific columns to `CSV_COLUMNS`
 - Customize `build_score_row()` for your output format
 
 ### Step 6: Set Agent Version
 
-Edit `src/loop/version.py`:
+Edit `src/lup/version.py`:
 - Set initial `AGENT_VERSION`
 - Bump on behavior changes (prompts, tools, subagents)
 
 ### Step 5: Update Feedback Collection
 
-Edit `.claude/plugins/loop/scripts/feedback_collect.py`:
+Edit `.claude/plugins/lup/scripts/loop/feedback_collect.py`:
 - Implement `load_outcomes()` for your domain
 - Customize `compute_metrics()` for your metrics
 - Add domain-specific summary output
@@ -197,9 +216,9 @@ This project uses **git worktrees** (not regular branches) to develop multiple f
    ```
 2. **Commit regularly and atomically** -- Each commit should represent a single logical change. Don't bundle unrelated changes together.
 3. Push the branch when the feature is complete (or periodically for backup)
-4. **`/loop:rebase`** -- Creates a clean rebase branch with atomic commits and opens a PR.
-5. **Review the PR** -- If changes are needed, fix them on the feature branch and re-run `/loop:rebase` (it force-pushes over the existing rebase branch, updating the PR).
-6. **`/loop:close`** -- Once the PR is approved, merges it and cleans up both branches (rebase + original) and remote refs.
+4. **`/lup:rebase`** -- Creates a clean rebase branch with atomic commits and opens a PR.
+5. **Review the PR** -- If changes are needed, fix them on the feature branch and re-run `/lup:rebase` (it force-pushes over the existing rebase branch, updating the PR).
+6. **`/lup:close`** -- Once the PR is approved, merges it and cleans up both branches (rebase + original) and remote refs.
 
 ### Commit Guidelines
 
@@ -248,9 +267,9 @@ data(outputs): add session batch results
 
 ```
 src/
-└── loop/
+└── lup/
     ├── version.py              # Agent version tracking (bump on behavior changes)
-    ├── lib/                    # Reusable abstractions (rarely modified)
+    ├── lib/                    # Reusable cross-project abstractions
     │   ├── cache.py            # TTL caching for API responses
     │   ├── history.py          # Session storage/retrieval
     │   ├── hooks.py            # Claude Agent SDK hook utilities
@@ -261,7 +280,7 @@ src/
     │   ├── retry.py            # Retry decorator with backoff
     │   ├── scoring.py          # CSV result tracking and score generation
     │   └── trace.py            # Trace logging, color-coded console display
-    ├── agent/                  # Domain-specific code (feedback loop improves this)
+    ├── agent/                  # Agent logistics (improves via feedback loop)
     │   ├── core.py             # Main orchestration
     │   ├── config.py           # Settings via pydantic-settings
     │   ├── models.py           # Output models (customize for your domain)
@@ -270,7 +289,7 @@ src/
     │   ├── tool_policy.py      # Conditional tool availability
     │   └── tools/
     │       └── example.py      # Example MCP tools (customize)
-    └── environment/            # Domain scaffolding (user interaction, game logic)
+    └── environment/            # Interface layer (CLI, Discord, API server)
         └── cli/
             └── __main__.py     # Typer CLI (run + loop with auto-commit)
 ```
@@ -279,7 +298,7 @@ src/
 
 ### Primary Libraries
 
-- **claude-agent-sdk**: Primary framework for building agents (use `query()` for one-shot LLM calls with structured output)
+- **claude-agent-sdk**: Primary framework for building agents. **Always use `ClaudeSDKClient`** (stateful, bidirectional) instead of bare `query()` — it avoids async runtime issues and is more modular (tools, hooks, subagents)
 - **pydantic**: For data validation and settings
 - **pydantic-settings**: For configuration (not dotenv)
 
@@ -288,11 +307,11 @@ src/
 - **No bare `except Exception`** -- always catch specific exceptions
 - **Every function must specify input and output types**
 - **Never use `Any`** -- Use `TypedDict` for dict-like data, `BaseModel` for validated models, or specific types. `Any` hides type errors and defeats static analysis.
-- **Use Python 3.12+ generics syntax**: `class A[T]`, not `Generic[T]`
-- Use `TypedDict` and Pydantic models for structured data
+- **Use Python 3.14+ features**: `class A[T]` generics, `type X = ...` aliases, deferred annotations
+- **Use Pydantic BaseModel** for validated models, **TypedDict** for unvalidated dict-like data. Never use dataclasses or plain dicts for structured data.
+- **Use `contextlib.contextmanager`** for setup/teardown patterns instead of manual on-off state management
 - Never manually parse Claude/agent output -- use structured outputs via Pydantic
 - **Never use `# type: ignore`** -- Ask the user how to properly fix type errors
-- **Use Pydantic BaseModel instead of dataclasses**
 
 ### No Regex/String Parsing for Structured Data
 
@@ -355,8 +374,8 @@ The codebase should read as a **monolithic source of truth** -- understandable w
 ### Tools
 
 - **uv**: Package manager. Use `uv add <package>` (never edit pyproject.toml directly)
-- **ruff**: Formatting and linting
-- **pyright**: Type checking
+- **ruff**: Formatting and linting. **Run `ruff format .` directly** -- never use `--check` followed by manual edits.
+- **pyright**: Type checking. **Use pyright LSP tools** (go-to-definition, find-references, rename-symbol) instead of grepping for symbols.
 
 ### Pyright LSP
 
@@ -397,58 +416,83 @@ The `pyright-lsp` plugin is enabled and provides code intelligence tools. **Use 
 
 ## Helper Scripts
 
-The `.claude/plugins/loop/scripts/` directory contains reusable scripts. **Always use these scripts instead of ad-hoc commands.** Never use `uv run python -c "..."` or bare `python`/`python3` -- these are denied by the Bash permission hook.
+The `.claude/plugins/lup/scripts/` directory contains reusable scripts. **Always use these scripts instead of ad-hoc commands.** Never use `uv run python -c "..."` or bare `python`/`python3` -- these are denied by the Bash permission hook.
 
-If you find yourself running the same command repeatedly, **create a script** in `.claude/plugins/loop/scripts/` and document it here.
+If you find yourself running the same command repeatedly, **create a script** in `.claude/plugins/lup/scripts/` and document it here.
 
 **Write scripts in Python using [typer](https://typer.tiangolo.com/)** for CLI interfaces. Use **[sh](https://sh.readthedocs.io/)** for shell commands instead of `subprocess`.
 
-### inspect_api.py
+### Claude Scripts (`scripts/claude/`)
+
+Internal tooling for Claude (the meta-agent). Users don't typically run these directly.
+
+#### inspect_api.py
 
 Explore package APIs -- never use `python -c "import ..."` or ad-hoc REPL commands.
 
 ```bash
-uv run python .claude/plugins/loop/scripts/inspect_api.py <module.Class>
-uv run python .claude/plugins/loop/scripts/inspect_api.py <module.Class.method>
-uv run python .claude/plugins/loop/scripts/inspect_api.py <module.Class> --help-full
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class>
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class.method>
+uv run python .claude/plugins/lup/scripts/claude/inspect_api.py <module.Class> --help-full
 ```
 
-### module_info.py
+#### module_info.py
 
 Get paths and source code for installed Python modules.
 
 ```bash
-uv run python .claude/plugins/loop/scripts/module_info.py path <module>
-uv run python .claude/plugins/loop/scripts/module_info.py source <module> [--lines N]
+uv run python .claude/plugins/lup/scripts/claude/module_info.py path <module>
+uv run python .claude/plugins/lup/scripts/claude/module_info.py source <module> [--lines N]
 ```
 
-### new_worktree.py
-
-Create a new git worktree with setup.
-
-```bash
-uv run python .claude/plugins/loop/scripts/new_worktree.py <name> [--no-sync] [--no-copy-data]
-```
-
-Creates worktree, copies `.env.local` and data directories, runs `uv sync`.
-
-### commit_results.py
+#### commit_results.py
 
 Commit uncommitted session results (one commit per session).
 
 ```bash
-uv run python .claude/plugins/loop/scripts/commit_results.py
-uv run python .claude/plugins/loop/scripts/commit_results.py --dry-run
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py
+uv run python .claude/plugins/lup/scripts/claude/commit_results.py --dry-run
 ```
+
+#### downstream_sync.py
+
+Track upstream repos and review commits since last sync. Used by `/lup:update`.
+
+```bash
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py list
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py log <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py diff <project> <sha>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py mark-synced <project>
+uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup <name> <path>
+```
+
+### User Scripts (`scripts/`)
+
+Scripts designed for direct human use.
+
+#### new_worktree.py
+
+Create a new git worktree with setup.
+
+```bash
+uv run python .claude/plugins/lup/scripts/new_worktree.py <name> [--no-sync] [--no-copy-data]
+```
+
+Creates worktree, copies `.env.local` and data directories, runs `uv sync`.
+
+### Feedback Loop Scripts (`scripts/loop/`)
+
+Template scripts for the self-improvement loop. Customize after running `/lup:init`.
+See [Feedback Loop Scripts](#feedback-loop-scripts) above for usage.
 
 ## Permission Hooks
 
-Permissions are managed by **PreToolUse hook scripts** in `.claude/plugins/loop/hooks/scripts/` rather than glob patterns in `settings.json`. Each hook uses regex patterns for precise control.
+Permissions are managed by **PreToolUse hook scripts** in `.claude/plugins/lup/hooks/scripts/` rather than glob patterns in `settings.json`. Each hook uses regex patterns for precise control.
 
 | Hook | Tool | Config |
 |---|---|---|
 | `auto_allow_fetch.py` | WebFetch | `ALLOW_PATTERNS` (regex), `DENY_PATTERNS` (regex + reason) |
-| `auto_allow_bash.py` | Bash | `ALLOW_PATTERNS` (regex), `DENY_PATTERNS` (regex + reason) |
+| `auto_allow_bash.py` | Bash | `RULES` list of `Allow`/`Deny` (last-match-wins, like .gitignore) |
 | `auto_allow_edits.py` | Edit | Trivial-line counting, protected file list |
 | `pre_push_check.py` | Bash (git push) | Runs pyright, ruff, pytest before push |
 | `check_plan_md.py` | Bash (git push) | Warns if PLAN.md missing on feature branches |
@@ -534,14 +578,18 @@ When the user provides documentation links, incorporate that knowledge into CLAU
 
 ### The Bitter Lesson
 
-When improving the agent, prefer:
+**More tools and capabilities always trump prompt modification.** When improving the agent:
 
 | Do This | Not This |
 |---------|----------|
 | Add tools that provide data | Add prompt rules that constrain behavior |
-| Apply general principles | Apply specific pattern patches |
-| Provide state/context via tools | Use f-string prompt engineering |
+| Communicate principles and the *why* | Prescribe rigid mechanical procedures |
+| Give Lup more information and tools | Prescribe exact reasoning steps |
+| Set `model=opus 4.6`, `max_thinking_tokens=128_000-1` | Compensate for weak reasoning with complex prompts |
+| See what went wrong from first principles | Make small edits to patch one mistake |
 | Create subagents for specialized work | Build complex pipelines in main agent |
+
+**When analyzing failures:** Ask "what general principle would have prevented this?" not "what specific rule would catch this case?" If the agent made one bad decision, the fix is almost never a prompt line about that specific decision. Instead: does the agent have enough context? Does it have the right tools? Is the model strong enough?
 
 ### Three Levels of Analysis
 
@@ -551,7 +599,7 @@ When improving the agent, prefer:
 
 ### Running the Feedback Loop
 
-1. **Collect feedback**: `uv run python .claude/plugins/loop/scripts/feedback_collect.py`
+1. **Collect feedback**: `uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py`
 2. **Read traces deeply**: Don't skip to aggregates. Read 5-10 sessions in detail.
 3. **Extract patterns**: Tool failures, capability requests, reasoning quality
 4. **Implement changes**: Fix tools -> Build requested capabilities -> Simplify prompts
@@ -576,8 +624,8 @@ The `.env` file contains the template configuration. Create `.env.local` for you
 # .env.local - your secrets
 ANTHROPIC_API_KEY=your-key
 
-# Optional overrides
-# AGENT_MODEL=claude-sonnet-4-20250514
+# Optional overrides (defaults: opus 4.6, 128k thinking tokens)
+# AGENT_MODEL=claude-opus-4-6
 # AGENT_MAX_BUDGET_USD=5.00
 ```
 
@@ -585,17 +633,20 @@ Settings in `.env.local` override `.env`.
 
 ### Settings
 
-Configuration is loaded via pydantic-settings. See `src/loop/agent/config.py` for all options.
+Configuration is loaded via pydantic-settings. See `src/lup/agent/config.py` for all options.
 
 ---
 
 # Anti-Patterns to Avoid
 
 - Adding numeric patches ("subtract 10% from estimates")
+- Prompting Lup with rigid mechanical procedures instead of guidelines and rationale
+- Adding absolute thresholds ("if X happens N times, do Y")
 - Adding rules the agent can't act on (no access to required data)
+- Making small edits to patch one mistake instead of finding the general cause
 - Skipping trace analysis to jump to aggregate statistics
 - Over-engineering initial implementations
-- Making changes in `loop.environment` when `loop.agent` is the right place
+- Making changes in `lup.environment` when `lup.agent` is the right place
 
 ### Questions to Ask
 
@@ -603,4 +654,5 @@ When proposing changes:
 1. Does this add a capability or just a rule?
 2. Would this help if the domain changed completely?
 3. Are we changing the right level (object/meta/meta-meta)?
+4. What general principle would have prevented this failure?
 4. What data would we need to validate this change worked?
