@@ -4,9 +4,11 @@ This is a TEMPLATE. Customize for your domain.
 
 Key patterns:
 1. Use {date} placeholder for current date
-2. Document all available tools
-3. Specify output format requirements
-4. Include domain-specific guidance
+2. Specify output format requirements and reasoning guidance
+3. Include domain-specific guidance
+4. Tools self-document via their descriptions — listing them here
+   creates a second source of truth that drifts as tools change
+   (see Tool Design Philosophy in CLAUDE.md)
 """
 
 from datetime import datetime
@@ -21,21 +23,6 @@ You are an AI agent. Today's date is {date}.
 
 [Describe what the agent does]
 
-## Tools Available
-
-### Research
-- **WebSearch**: Search the web for information
-- **WebFetch**: Fetch content from a specific URL
-
-### Computation
-- **execute_code**: Run Python code in a sandbox
-- **install_package**: Install packages before using in execute_code
-
-### Notes
-- **notes**: Structured notes with modes: list, search, read, write
-
-[Add your domain-specific tools here]
-
 ## Output Format
 
 Provide your output as structured JSON with:
@@ -46,7 +33,7 @@ Provide your output as structured JSON with:
 ## Guidelines
 
 1. Think step by step
-2. Use tools to gather information
+2. Use your available tools to gather information before reasoning
 3. Be explicit about uncertainty
 4. Document your reasoning
 
@@ -80,10 +67,11 @@ def get_system_prompt(
 
 
 def generate_tool_docs(mcp_servers: dict[str, Any]) -> str:
-    """Generate tool documentation from MCP servers.
+    """Generate tool documentation from MCP server tool descriptions.
 
-    Extracts tool names and descriptions from each MCP server configuration
-    to create a single source of truth for tool documentation.
+    Tool descriptions are the single source of truth for what each tool does,
+    when to use it, and why it exists. This function passes them through
+    untruncated — comprehensive descriptions are intentional.
     """
     lines = ["## Auto-Generated Tool Reference\n"]
 
@@ -99,8 +87,6 @@ def generate_tool_docs(mcp_servers: dict[str, Any]) -> str:
             tool_desc = getattr(tool, "description", "")
 
             if tool_desc:
-                if len(tool_desc) > 150:
-                    tool_desc = tool_desc[:147] + "..."
                 lines.append(f"- **{tool_name}**: {tool_desc}")
             else:
                 lines.append(f"- **{tool_name}**")

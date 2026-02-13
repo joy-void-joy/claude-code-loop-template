@@ -116,7 +116,7 @@ Customize AgentOutput for the domain:
 - Add domain-specific columns to `src/<project>/lib/scoring.py` CSV_COLUMNS
 
 ### 2. `src/<project>/agent/prompts.py`
-Update the system prompt template for the domain.
+Update the system prompt template for the domain. Focus on what the agent does and how to reason — tools self-document via their descriptions, so listing them in the prompt creates a second source of truth that drifts as tools change.
 
 ### 3. `src/<project>/agent/subagents.py`
 Create domain-appropriate subagents (researcher, analyzer, etc.)
@@ -140,7 +140,17 @@ Add domain-specific sections:
 - Commands specific to the domain
 - Metrics and feedback collection instructions
 
-### 8. Update `feedback-loop.md`
+### 8. Tool Description Standards
+
+The agent discovers tools through their descriptions — a terse description means the agent can't tell when or why to use it. Each description should answer:
+
+1. **What** — What does this tool do? (concrete behavior, not vague summary)
+2. **When** — When should the agent reach for this tool? (triggers, conditions)
+3. **Why** — Why does this tool exist? (what problem it solves, what gap it fills)
+
+See `src/<project>/agent/tools/example.py` for the pattern.
+
+### 9. Update `feedback-loop.md`
 Customize the feedback loop command for the domain's specific:
 - Ground truth type
 - Metrics to analyze

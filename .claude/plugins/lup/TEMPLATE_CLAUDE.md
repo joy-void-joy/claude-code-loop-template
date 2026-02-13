@@ -134,6 +134,16 @@ Use conventional commit syntax: `type(scope): description`
 - Use `TypedDict` and Pydantic models for structured data
 - Never manually parse agent output -- use structured outputs via Pydantic
 
+### Tool Input Schemas
+
+Define tool inputs as BaseModel classes with `Field(description=...)`. This gives you validation, type-safe access, defaults, and rich JSON Schema generation in one place.
+
+| Do This | Not This |
+|---------|----------|
+| `class SearchInput(BaseModel): query: str = Field(description="...")` | `{"query": str, "limit": int}` |
+| `SearchInput.model_json_schema()` for `@tool` schema | Hand-written dict schemas |
+| `SearchInput.model_validate(args)` then `params.query` | `args.get("query", "")` |
+
 ## Code as Documentation
 
 The codebase should read as a **monolithic source of truth** -- understandable without any knowledge of its history.

@@ -27,7 +27,7 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 
 ## Guiding Principle: The Bitter Lesson
 
-Give the agent MORE capabilities and tools rather than MORE prescriptive rules.
+**Tools are the highest-leverage change you can make.** A tool that provides the right data at the right time is worth more than any amount of prompt engineering. When the agent struggles, the answer is almost always a missing tool — not a missing prompt paragraph.
 
 | Prefer | Over |
 |--------|------|
@@ -38,6 +38,10 @@ Give the agent MORE capabilities and tools rather than MORE prescriptive rules.
 
 **The test**: Would this change still help if the domain shifted completely? General principles yes, specific patches no.
 
+**Prompts rot; tools don't.** Listing tools in the prompt creates two sources of truth that drift apart as tools change. The agent discovers tools through their descriptions, so putting tool knowledge in the description (not the prompt) keeps it accurate.
+
+**The description is the contract.** When the agent misuses a tool or ignores one it should use, the description is usually the problem. A good description answers what the tool does, when to reach for it, and why it exists — so the agent can match its situation to the tool without prompt-level instructions.
+
 **Clarification**: The bitter lesson does NOT mean never modifying prompts. It's fine to add:
 - General guidance for categories of tasks
 - Principles that help reasoning
@@ -46,7 +50,8 @@ Give the agent MORE capabilities and tools rather than MORE prescriptive rules.
 What to AVOID:
 - Specific numeric patches ("always subtract 10% from initial estimate")
 - Rules that hard-code observations from specific sessions
-- Prescriptive formulas that will become outdated
+- Listing tools in the prompt (creates a second source of truth that drifts)
+- Terse tool descriptions (the agent can't self-select tools it doesn't understand)
 
 Keep the system prompt fresh - periodically review and remove guidance that no longer applies.
 
@@ -181,9 +186,11 @@ If you find gaps, add tracking in Phase 4.
 
 ## Phase 4: Implement Changes (Bitter Lesson Order)
 
+**Tools are the highest-leverage change.** The priority order below reflects this — fix and build tools first, simplify prompts last.
+
 ### Priority 1: Fix Failing Tools
 
-If a tool fails repeatedly, fix it or add an alternative.
+If a tool fails repeatedly, fix it or add an alternative. A broken tool is worse than no tool — it wastes tokens and teaches the agent to avoid it.
 
 ### Priority 2: Build Requested Tools
 
@@ -195,24 +202,34 @@ For each capability gap found in traces:
 2. **Research**: What APIs or approaches exist?
 3. **Ask the user**: Use `AskUserQuestion` to present options and recommendations
 
-### Priority 3: Improve Subagents
+Good tool descriptions answer what/when/why — this helps the agent self-select the right tool without prompt-level instructions.
+
+### Priority 3: Improve Tool Descriptions
+
+Before changing prompts, check if the issue is a tool description problem:
+- Is the agent using the wrong tool? → Clarify the "when" in the description.
+- Is the agent not using a tool at all? → Add stronger "when to use" triggers.
+- Is the agent misinterpreting results? → Document the return format.
+
+### Priority 4: Improve Subagents
 
 If subagents aren't used:
 - Are they providing unique value?
 - Are they too expensive (time/compute)?
 - Should they be lighter/faster?
 
-### Priority 4: Simplify Prompts (Not Add Rules)
+### Priority 5: Simplify Prompts
 
-Prompt changes should:
-- ADD general principles that help across domains
-- REMOVE prescriptive rules that add complexity
-- PREFER "use tool X for Y" over "when pattern P, do Q"
+Prompts accumulate rules over time and become harder to maintain. Tool changes tend to be more durable because they add capabilities rather than constraints. When modifying prompts:
 
-**Do NOT add**:
-- Specific rules for specific task types
-- Numeric adjustments ("always add 10% margin")
-- Patches for observed patterns
+- Add general principles that transfer across domains
+- Remove prescriptive rules that add complexity without clear payoff
+- Keep tool knowledge in tool descriptions (avoids two sources of truth that drift)
+
+Watch out for:
+- Specific rules for specific task types (over-fitted, won't generalize)
+- Numeric adjustments ("always add 10% margin") (will become stale)
+- Patches for observed patterns (treat symptoms, not causes)
 
 ## Phase 5: Meta-Meta Level - Improve This Document
 
@@ -271,6 +288,12 @@ Every session should leave this document better:
 ### DON'T: Add rules the agent can't act on
 ❌ "Adjust based on X" (if agent can't see X)
 ✅ Provide tools that give the agent actionable information
+
+### DON'T: List tools in prompts or write terse descriptions
+❌ "## Tools Available\n- **WebSearch**: Search the web"
+❌ Tool description: "Search for information"
+✅ Let the agent discover tools through comprehensive descriptions
+✅ Tool description: "Search for X using Y. Use when Z. Exists because W. Returns {format}."
 
 ### DON'T: Skip reading traces
 ❌ Jump to aggregate statistics
