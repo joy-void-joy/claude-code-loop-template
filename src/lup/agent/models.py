@@ -37,12 +37,8 @@ class Factor(BaseModel):
     """
 
     text: str = Field(description="Description of the factor")
-    factor_type: str = Field(
-        description="Type of factor (customize for your domain)"
-    )
-    weight: float = Field(
-        default=1.0, description="Relative importance (1-5 scale)"
-    )
+    factor_type: str = Field(description="Type of factor (customize for your domain)")
+    weight: float = Field(default=1.0, description="Relative importance (1-5 scale)")
 
 
 class AgentOutput(BaseModel):
@@ -97,7 +93,9 @@ class SessionResult(BaseModel):
 
     session_id: str
     task_id: str | None = Field(default=None, description="Domain-specific task ID")
-    agent_version: str = Field(default="", description="Agent version that produced this result")
+    agent_version: str = Field(
+        default="", description="Agent version that produced this result"
+    )
     timestamp: str
     output: AgentOutput
     reasoning: str = Field(default="", description="Raw reasoning text")

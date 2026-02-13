@@ -36,7 +36,9 @@ RULES: list[Allow | Deny] = [
     Allow(pattern=r"^ls\b"),
     Allow(pattern=r"^grep\b"),
     # Git (safe subset)
-    Allow(pattern=r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b"),
+    Allow(
+        pattern=r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b"
+    ),
     # uv package management
     Allow(pattern=r"^uv (sync|add|remove|lock)\b"),
     Allow(pattern=r"^uv run (pyright|pytest|ruff)\b"),

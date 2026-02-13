@@ -62,9 +62,7 @@ def main() -> None:
     try:
         sh.uv("run", "pyright")
     except sh.ErrorReturnCode:
-        deny(
-            "Cannot push: pyright found type errors. Please fix them before pushing."
-        )
+        deny("Cannot push: pyright found type errors. Please fix them before pushing.")
     print("pyright passed", file=sys.stderr)
 
     # 2. Run ruff format (auto-fix)

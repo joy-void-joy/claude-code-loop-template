@@ -166,7 +166,9 @@ def create_permission_hooks(
                 )
             if path_is_under(file_path, all_readable):
                 return allow()
-            return deny(f"{tool_name} denied. Allowed: {[str(d) for d in all_readable]}")
+            return deny(
+                f"{tool_name} denied. Allowed: {[str(d) for d in all_readable]}"
+            )
 
         # Auto-allow everything else
         return allow()
@@ -179,6 +181,7 @@ def create_permission_hooks(
 # =============================================================================
 # EXAMPLE: Post-tool hook for response inspection
 # =============================================================================
+
 
 def create_post_tool_hooks() -> HooksConfig:
     """Example: Create post-tool hooks for response inspection.

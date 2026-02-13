@@ -91,7 +91,9 @@ def migrate_session(
 
 @app.command()
 def main(
-    name: Annotated[str, typer.Argument(help="Name for the worktree (e.g., feat-name)")],
+    name: Annotated[
+        str, typer.Argument(help="Name for the worktree (e.g., feat-name)")
+    ],
     session_id: Annotated[
         str | None,
         typer.Option("--session-id", "-s", help="Specific session ID to migrate"),
@@ -128,7 +130,9 @@ def main(
     # Create worktree
     try:
         if base_branch:
-            sh.git("worktree", "add", str(worktree_path), "-b", branch_name, base_branch)
+            sh.git(
+                "worktree", "add", str(worktree_path), "-b", branch_name, base_branch
+            )
         else:
             sh.git("worktree", "add", str(worktree_path), "-b", branch_name)
     except sh.ErrorReturnCode as e:
@@ -166,12 +170,12 @@ def main(
     typer.echo("=" * 60)
     typer.echo("Worktree created successfully!")
     typer.echo("=" * 60)
-    typer.echo(f"\nTo use the new worktree:")
+    typer.echo("\nTo use the new worktree:")
     typer.echo(f"  cd {worktree_path}")
     if migrated_id:
-        typer.echo(f"  claude --resume")
+        typer.echo("  claude --resume")
     else:
-        typer.echo(f"  claude")
+        typer.echo("  claude")
 
 
 if __name__ == "__main__":

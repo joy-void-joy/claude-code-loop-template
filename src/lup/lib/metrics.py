@@ -19,7 +19,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import Any, ParamSpec, TypeVar, cast
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 logger = logging.getLogger(__name__)
 

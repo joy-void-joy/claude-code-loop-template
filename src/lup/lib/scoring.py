@@ -53,7 +53,9 @@ def build_score_row(result: SessionResult) -> dict[str, str]:
         "timestamp": result.timestamp,
         "summary": result.output.summary[:80],
         "confidence": f"{result.output.confidence:.4f}",
-        "duration_seconds": f"{result.duration_seconds:.1f}" if result.duration_seconds else "",
+        "duration_seconds": f"{result.duration_seconds:.1f}"
+        if result.duration_seconds
+        else "",
         "cost_usd": f"{result.cost_usd:.4f}" if result.cost_usd else "",
         "input_tokens": token_input,
         "output_tokens": token_output,

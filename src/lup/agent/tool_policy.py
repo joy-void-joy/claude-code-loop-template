@@ -32,16 +32,18 @@ if TYPE_CHECKING:
 # =============================================================================
 
 # Built-in SDK tools (always available)
-BUILTIN_TOOLS: frozenset[str] = frozenset({
-    "WebSearch",
-    "WebFetch",
-    "Read",
-    "Write",
-    "Glob",
-    "Grep",
-    "Bash",
-    "Task",
-})
+BUILTIN_TOOLS: frozenset[str] = frozenset(
+    {
+        "WebSearch",
+        "WebFetch",
+        "Read",
+        "Write",
+        "Glob",
+        "Grep",
+        "Bash",
+        "Task",
+    }
+)
 
 # Define named tool sets for each API dependency.
 # Each set groups tools that share the same API key requirement.

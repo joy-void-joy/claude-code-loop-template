@@ -23,9 +23,7 @@ def mcp_response(text: str, *, is_error: bool = False) -> dict[str, Any]:
     Returns:
         Properly formatted MCP response dict.
     """
-    response: dict[str, Any] = {
-        "content": [{"type": "text", "text": text}]
-    }
+    response: dict[str, Any] = {"content": [{"type": "text", "text": text}]}
     if is_error:
         response["is_error"] = True
     return response

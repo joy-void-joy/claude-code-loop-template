@@ -126,7 +126,9 @@ def ensure_local(proj: dict[str, str]) -> str:
     typer.echo(f"Project '{name}' has no local path or URL configured.")
     typer.echo("\nEither:")
     typer.echo("  1. Add a URL to downstream.json")
-    typer.echo(f"  2. Run: uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup {name} /path/to/repo")
+    typer.echo(
+        f"  2. Run: uv run python .claude/plugins/lup/scripts/claude/downstream_sync.py setup {name} /path/to/repo"
+    )
     raise typer.Exit(1)
 
 
@@ -180,7 +182,9 @@ def list_projects() -> None:
 
         resolved, exists = _resolve_path(p)
         if not exists:
-            print(f"{p['name']:<20} {'?':<10} {synced_short:<12} {resolved} (run list after clone)")
+            print(
+                f"{p['name']:<20} {'?':<10} {synced_short:<12} {resolved} (run list after clone)"
+            )
             continue
 
         behind = commit_count(resolved, synced)
@@ -243,11 +247,13 @@ def mark_synced(
     if entry:
         entry["last_synced_commit"] = head
     else:
-        local_projects.append({
-            "name": project,
-            "path": path,
-            "last_synced_commit": head,
-        })
+        local_projects.append(
+            {
+                "name": project,
+                "path": path,
+                "last_synced_commit": head,
+            }
+        )
         local_data["projects"] = local_projects
 
     _save_local(local_data)
@@ -256,9 +262,13 @@ def mark_synced(
 
 @app.command("setup")
 def setup_project(
-    name: Annotated[str, typer.Argument(help="Project name (must match downstream.json)")],
+    name: Annotated[
+        str, typer.Argument(help="Project name (must match downstream.json)")
+    ],
     path: Annotated[str, typer.Argument(help="Local path to the repo")],
-    synced: Annotated[bool, typer.Option("--synced", help="Mark as already synced at current HEAD")] = False,
+    synced: Annotated[
+        bool, typer.Option("--synced", help="Mark as already synced at current HEAD")
+    ] = False,
 ) -> None:
     """Set the local path for a project (writes to downstream.json.local)."""
     resolved = Path(path).resolve()

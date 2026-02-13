@@ -110,7 +110,9 @@ def extract_block_info(block: ContentBlock) -> BlockInfo:
             content = json.dumps(block.input, indent=2) if block.input else ""
             return BlockInfo("🔧", f"Tool: {block.name}", content, is_code=True)
         case ToolResultBlock():
-            return BlockInfo("📋", "Result", normalize_content(block.content), is_code=True)
+            return BlockInfo(
+                "📋", "Result", normalize_content(block.content), is_code=True
+            )
         case _:
             return BlockInfo("❓", "Unknown", str(block))
 

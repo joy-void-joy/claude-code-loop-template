@@ -208,7 +208,9 @@ def compute_metrics(results: list[SessionResult]) -> FeedbackMetrics:
 def main(
     since: Annotated[
         str | None,
-        typer.Option("--since", "-s", help="Only sessions after this date (YYYY-MM-DD)"),
+        typer.Option(
+            "--since", "-s", help="Only sessions after this date (YYYY-MM-DD)"
+        ),
     ] = None,
     all_time: Annotated[
         bool,

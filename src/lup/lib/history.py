@@ -137,7 +137,9 @@ def update_session_metadata(
         return False
 
 
-def format_history_for_context(sessions: list[SessionResult], max_sessions: int = 5) -> str:
+def format_history_for_context(
+    sessions: list[SessionResult], max_sessions: int = 5
+) -> str:
     """Format past sessions as context for the agent.
 
     Args:

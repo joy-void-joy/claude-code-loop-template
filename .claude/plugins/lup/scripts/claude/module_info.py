@@ -39,7 +39,9 @@ def find_module_path(module_name: str) -> Path | None:
 
 @app.command()
 def path(
-    module: Annotated[str, typer.Argument(help="Module name (e.g., 'requests' or 'requests.api')")]
+    module: Annotated[
+        str, typer.Argument(help="Module name (e.g., 'requests' or 'requests.api')")
+    ],
 ) -> None:
     """Show the file path for a module."""
     module_path = find_module_path(module)
@@ -105,7 +107,7 @@ def source(
 
 @app.command()
 def tree(
-    module: Annotated[str, typer.Argument(help="Package name (e.g., 'requests')")]
+    module: Annotated[str, typer.Argument(help="Package name (e.g., 'requests')")],
 ) -> None:
     """Show the file tree for a package."""
     module_path = find_module_path(module)
@@ -134,9 +136,7 @@ def tree(
 
 
 @app.command()
-def info(
-    module: Annotated[str, typer.Argument(help="Module name")]
-) -> None:
+def info(module: Annotated[str, typer.Argument(help="Module name")]) -> None:
     """Show detailed info about a module."""
     try:
         mod = importlib.import_module(module)

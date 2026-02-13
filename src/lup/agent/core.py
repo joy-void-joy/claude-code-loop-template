@@ -216,7 +216,10 @@ def _extract_sources(messages: list[AssistantMessage]) -> list[str]:
     sources: list[str] = []
     for msg in messages:
         for block in msg.content:
-            if isinstance(block, ToolUseBlock) and block.name in ("WebSearch", "WebFetch"):
+            if isinstance(block, ToolUseBlock) and block.name in (
+                "WebSearch",
+                "WebFetch",
+            ):
                 if isinstance(block.input, dict):
                     source = block.input.get("url") or block.input.get("query")
                     if source:

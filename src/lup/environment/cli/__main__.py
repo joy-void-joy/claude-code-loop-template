@@ -145,7 +145,9 @@ def loop(
     ] = False,
     auto_commit: Annotated[
         bool,
-        typer.Option("--commit/--no-commit", help="Auto-commit results after each task"),
+        typer.Option(
+            "--commit/--no-commit", help="Auto-commit results after each task"
+        ),
     ] = True,
 ) -> None:
     """Run multiple agent sessions and auto-commit results.
@@ -167,9 +169,9 @@ def loop(
     total_cost = 0.0
 
     for i, task in enumerate(tasks, 1):
-        typer.echo(f"\n{'='*60}")
+        typer.echo(f"\n{'=' * 60}")
         typer.echo(f"Task {i}/{len(tasks)}: {task[:80]}")
-        typer.echo(f"{'='*60}")
+        typer.echo(f"{'=' * 60}")
 
         try:
             result = asyncio.run(run_session(task))
@@ -183,7 +185,7 @@ def loop(
         if auto_commit:
             _commit_results()
 
-    typer.echo(f"\n{'='*60}")
+    typer.echo(f"\n{'=' * 60}")
     typer.echo(f"Completed {len(results)}/{len(tasks)} sessions")
     typer.echo(f"Total cost: ${total_cost:.4f}")
 

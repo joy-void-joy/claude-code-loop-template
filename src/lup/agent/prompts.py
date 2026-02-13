@@ -69,9 +69,7 @@ def get_system_prompt(
         The formatted system prompt.
     """
     effective_date = date or datetime.now()
-    prompt = _SYSTEM_PROMPT_TEMPLATE.format(
-        date=effective_date.strftime("%Y-%m-%d")
-    )
+    prompt = _SYSTEM_PROMPT_TEMPLATE.format(date=effective_date.strftime("%Y-%m-%d"))
 
     # If MCP servers provided, append auto-generated tool docs
     if mcp_servers:

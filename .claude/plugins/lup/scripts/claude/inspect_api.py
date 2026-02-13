@@ -55,7 +55,9 @@ def get_docstring(obj: object) -> str:
 
 @app.command()
 def main(
-    path: Annotated[str, typer.Argument(help="Dotted path like module.Class or module.Class.method")],
+    path: Annotated[
+        str, typer.Argument(help="Dotted path like module.Class or module.Class.method")
+    ],
     help_full: Annotated[
         bool,
         typer.Option("--help-full", help="Show full help including inherited methods"),
@@ -72,9 +74,9 @@ def main(
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
 
-    typer.echo(f"\n{'='*60}")
+    typer.echo(f"\n{'=' * 60}")
     typer.echo(f"  {path}")
-    typer.echo(f"{'='*60}\n")
+    typer.echo(f"{'=' * 60}\n")
 
     # Show type
     obj_type = type(obj).__name__

@@ -37,7 +37,6 @@ async def search_example(args: dict[str, Any]) -> dict[str, Any]:
         MCP response with search results.
     """
     query = args.get("query", "")
-    limit = args.get("limit", 10)
 
     if not query:
         return {
