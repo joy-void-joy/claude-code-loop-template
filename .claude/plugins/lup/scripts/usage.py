@@ -6,10 +6,12 @@ and supplements with stats-cache.json for daily detail.
 
 Usage:
     uv run python .claude/plugins/lup/scripts/usage.py
+    uv run python .claude/plugins/lup/scripts/usage.py --watch
     uv run python .claude/plugins/lup/scripts/usage.py --no-detail
 """
 
 import json
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, TypedDict
@@ -17,7 +19,8 @@ from typing import Annotated, TypedDict
 import httpx
 import typer
 from pydantic import BaseModel, ConfigDict, Field
-from rich.console import Console
+from rich.console import Console, Group
+from rich.live import Live
 from rich.panel import Panel
 from rich.text import Text
 
@@ -44,16 +47,7 @@ MODEL_COLORS: dict[str, str] = {
     "haiku": "bright_cyan",
 }
 
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-DAY_COLORS = [
-    "bright_red",
-    "bright_yellow",
-    "bright_green",
-    "bright_cyan",
-    "bright_blue",
-    "bright_magenta",
-    "white",
-]
+DAY_NAMES = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
 
 
 # ── types ────────────────────────────────────────────────
@@ -372,13 +366,13 @@ def build_display(
 
     # ── 7-day usage (headline) ──
     seven_day = usage.get("seven_day")
-    if seven_day:
+    if seven_day and seven_day.get("resets_at"):
         render_bucket(out, "weekly", seven_day, 7 * 24, bar_width)
         out.append("\n")
 
     # ── 5-hour rolling ──
     five_hour = usage.get("five_hour")
-    if five_hour:
+    if five_hour and five_hour.get("resets_at"):
         render_bucket(out, "5-hour", five_hour, 5, bar_width)
         out.append("\n")
 
@@ -390,7 +384,7 @@ def build_display(
         ("seven_day_oauth_apps", "oauth 7d"),
     ]:
         bucket = usage.get(key)  # type: ignore[literal-required]
-        if bucket:
+        if bucket and bucket.get("resets_at"):
             render_bucket(out, label, bucket, 7 * 24, bar_width)
             out.append("\n")
 
@@ -406,13 +400,7 @@ def build_display(
         out.append(f"  ({util:.0f}%)", style="bold")
         out.append("\n")
 
-        fill_color = (
-            "bright_green"
-            if util < 50
-            else "bright_yellow"
-            if util < 80
-            else "bright_red"
-        )
+        fill_color = pace_color(util / 100)
         filled = min(int((util / 100) * bar_width), bar_width)
         out.append("  ")
         for i in range(bar_width):
@@ -437,13 +425,46 @@ def build_display(
                 out.append(f"  (cache: {last_computed})", style="dim italic")
             out.append("\n")
 
-            max_day = max((d.total_tokens for d in daily), default=1) or 1
             day_bar_w = bar_width - 14
+
+            # cost-per-token from aggregate model usage
+            cost_rates: dict[str, float] = {}
+            for mid, entry in stats.model_usage.items():
+                total_tok = (
+                    entry.input_tokens + entry.output_tokens
+                    + entry.cache_read_input_tokens
+                    + entry.cache_creation_input_tokens
+                )
+                if total_tok > 0:
+                    cost_rates[mid] = entry.cost_usd / total_tok
+
+            totals: dict[str, int] = {}
+            week_total = 0
+            daily_weights: list[float] = []
+            for day in daily:
+                week_total += day.total_tokens
+                weight = 0.0
+                for model, tokens in day.tokens_by_model.items():
+                    totals[model] = totals.get(model, 0) + tokens
+                    weight += tokens * cost_rates.get(model, 0)
+                daily_weights.append(weight)
+
+            week_weight = sum(daily_weights)
+            weekly_util = seven_day["utilization"]
+            if cost_rates and week_weight > 0 and weekly_util > 0:
+                even_daily = week_weight / (weekly_util / 100) / 7
+            else:
+                cap = (
+                    week_total / (weekly_util / 100)
+                    if weekly_util > 0
+                    else week_total
+                )
+                even_daily = cap / 7 if cap > 0 else 1
+                daily_weights = [float(d.total_tokens) for d in daily]
 
             for i, day in enumerate(daily):
                 d = datetime.fromisoformat(day.date).date()
                 day_name = DAY_NAMES[d.weekday()]
-                color_idx = i % len(DAY_COLORS)
 
                 if d == today:
                     out.append(f"  {day_name}", style="bold bright_white")
@@ -457,27 +478,21 @@ def build_display(
                     out.append("·" * day_bar_w, style="bright_black")
                     out.append("\n")
                 else:
+                    ratio = daily_weights[i] / even_daily
                     filled = (
-                        max(1, int((day.total_tokens / max_day) * day_bar_w))
+                        max(1, int(ratio * day_bar_w))
                         if day.total_tokens > 0
                         else 0
                     )
-                    out.append("█" * filled, style=DAY_COLORS[color_idx])
-                    out.append("░" * (day_bar_w - filled), style="bright_black")
+                    bg = max(0, day_bar_w - filled)
+                    out.append("█" * filled, style=pace_color(ratio))
+                    out.append("░" * bg, style="bright_black")
                     out.append(f" {fmt_tokens(day.total_tokens):>5}", style="bold")
                     if day.activity and day.activity.message_count > 0:
                         out.append(f"  {day.activity.message_count:,}m", style="dim")
                     out.append("\n")
 
             out.append("\n")
-
-            # model breakdown
-            totals: dict[str, int] = {}
-            week_total = 0
-            for day in daily:
-                week_total += day.total_tokens
-                for model, tokens in day.tokens_by_model.items():
-                    totals[model] = totals.get(model, 0) + tokens
 
             if totals:
                 out.append("  models", style="bold bright_white")
@@ -499,6 +514,28 @@ def build_display(
     )
 
 
+def _fetch_and_build(
+    detail: bool,
+    bar_width: int,
+) -> Panel:
+    """Fetch usage and build the display panel."""
+    usage = fetch_usage()
+    stats = load_stats() if detail else None
+    return build_display(usage, stats, detail, bar_width)
+
+
+def _build_error_panel(message: str) -> Panel:
+    out = Text()
+    out.append(f"  {message}", style="red")
+    out.append("\n  retrying...", style="dim")
+    return Panel(
+        out,
+        title="[bold bright_white]Claude Code Usage[/bold bright_white]",
+        border_style="red",
+        padding=(1, 1),
+    )
+
+
 @app.command()
 def main(
     detail: Annotated[
@@ -508,29 +545,72 @@ def main(
             help="Show daily breakdown from stats cache.",
         ),
     ] = True,
+    watch: Annotated[
+        bool,
+        typer.Option(
+            "--watch", "-w",
+            help="Continuously refresh the display.",
+        ),
+    ] = False,
+    interval: Annotated[
+        int,
+        typer.Option(
+            "--interval", "-n",
+            help="Refresh interval in seconds (with --watch).",
+        ),
+    ] = 600,
 ) -> None:
     """Show live Claude Code usage with pacing bars."""
     if not CREDS_PATH.exists():
         console.print("[red]No credentials at ~/.claude/.credentials.json[/red]")
         raise typer.Exit(1)
 
-    try:
-        usage = fetch_usage()
-    except httpx.HTTPStatusError as e:
-        console.print(
-            f"[red]API error: {e.response.status_code} {e.response.text[:200]}[/red]"
-        )
-        raise typer.Exit(1) from e
-    except httpx.ConnectError as e:
-        console.print(f"[red]Connection failed: {e}[/red]")
-        raise typer.Exit(1) from e
-
-    stats = load_stats() if detail else None
     bar_width = min(console.width - 10, 58)
 
-    panel = build_display(usage, stats, detail, bar_width)
-    console.print()
-    console.print(panel)
+    if not watch:
+        try:
+            panel = _fetch_and_build(detail, bar_width)
+        except httpx.HTTPStatusError as e:
+            console.print(
+                f"[red]API error: {e.response.status_code} {e.response.text[:200]}[/red]"
+            )
+            raise typer.Exit(1) from e
+        except httpx.ConnectError as e:
+            console.print(f"[red]Connection failed: {e}[/red]")
+            raise typer.Exit(1) from e
+        console.print()
+        console.print(panel)
+        return
+
+    # watch mode: continuous refresh with Rich Live
+    timestamp = Text(
+        f"  updated {datetime.now().strftime('%H:%M:%S')}  ·  every {interval}s  ·  ctrl-c to quit",
+        style="dim",
+    )
+    try:
+        panel = _fetch_and_build(detail, bar_width)
+    except (httpx.HTTPStatusError, httpx.ConnectError):
+        panel = _build_error_panel("Initial fetch failed")
+
+    with Live(
+        Group(panel, timestamp),
+        console=console,
+        refresh_per_second=1,
+        screen=True,
+    ) as live:
+        while True:
+            try:
+                time.sleep(interval)
+                panel = _fetch_and_build(detail, bar_width)
+            except (httpx.HTTPStatusError, httpx.ConnectError) as e:
+                panel = _build_error_panel(str(e)[:120])
+            except KeyboardInterrupt:
+                break
+            timestamp = Text(
+                f"  updated {datetime.now().strftime('%H:%M:%S')}  ·  every {interval}s  ·  ctrl-c to quit",
+                style="dim",
+            )
+            live.update(Group(panel, timestamp))
 
 
 if __name__ == "__main__":
