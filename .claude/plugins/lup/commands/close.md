@@ -5,23 +5,17 @@ description: Check PR review status, merge if approved, and clean up branches
 
 # Close PR
 
-Check the review status of a rebase PR, merge it if approved, and clean up all related branches and worktrees.
+Check the review status of the feature branch's PR, merge it if approved, and clean up.
 
 ## Process
 
 ### 1. Identify the PR
 
-Determine the current branch and find its associated `-rebase` PR:
+Find the open PR for the current branch:
 
 ```bash
 CURRENT_BRANCH=$(git branch --show-current)
-REBASE_BRANCH="${CURRENT_BRANCH}-rebase"
-```
-
-Find the open PR for the rebase branch:
-
-```bash
-gh pr list --head "$REBASE_BRANCH" --state open --json number,title,url
+gh pr list --head "$CURRENT_BRANCH" --state open --json number,title,url
 ```
 
 If no PR is found, check if the user passed a PR number as an argument. If still nothing, report the error and stop.
@@ -58,7 +52,7 @@ gh pr view <PR_NUMBER> --comments
 gh pr merge <PR_NUMBER> --squash --delete-branch
 ```
 
-Use `--squash` to create a single merge commit. The `--delete-branch` flag removes the rebase branch on remote automatically.
+Use `--squash` to create a single merge commit. The `--delete-branch` flag removes the branch on remote automatically.
 
 ### 5. Clean up
 
@@ -70,17 +64,8 @@ cd ../main
 git pull
 cd -
 
-# Delete the local rebase branch (if it exists locally)
-git branch -d "$REBASE_BRANCH" 2>/dev/null || true
-
-# Delete the original feature branch locally
-# Use -D (force): the base branch has merge commits that diverge from main's
-# rebased history, so -d always fails. This is expected and safe since the
-# PR is merged.
+# Delete the local feature branch
 git branch -D "$CURRENT_BRANCH" 2>/dev/null || true
-
-# Delete the original feature branch on remote
-git push origin --delete "$CURRENT_BRANCH" 2>/dev/null || true
 ```
 
 Then warn the user that their current worktree corresponds to the now-merged branch. Suggest they run `/lup:clean-gone` from the main worktree to remove this worktree, or navigate to the main worktree to continue working.
@@ -89,13 +74,11 @@ Then warn the user that their current worktree corresponds to the now-merged bra
 
 Summarize what was done:
 - PR merged (with link)
-- Branches deleted (list which)
+- Branch deleted (local + remote)
 - Remaining cleanup needed (worktree removal if applicable)
 
 ## Guidelines
 
 - Always show review comments before merging -- never skip review feedback
 - Use `--squash` merge to keep main history clean
-- Use `-d` for the rebase branch (should be fully merged). Use `-D` for the base branch -- its merge commits always diverge from main's rebased history, so `-d` fails even though the work is merged.
 - The user must confirm before merging via AskUserQuestion
-- If the current branch IS the rebase branch (not the original), adapt the cleanup accordingly

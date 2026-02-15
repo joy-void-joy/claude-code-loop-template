@@ -80,8 +80,8 @@ The `src/` directory IS the template — when someone forks this repo, this code
    - CLI structure, how the agent is invoked
    - Any scaffolding patterns
 
-8. **Scripts** (`.claude/plugins/lup/scripts/`)
-   - Both claude/ and loop/ scripts
+8. **Devtools** (`src/lup/devtools/`)
+   - CLI commands for development and analysis
    - Patterns encoded in automation
 
 ## Phase 3: Propose Changes (Grouped by Layer)

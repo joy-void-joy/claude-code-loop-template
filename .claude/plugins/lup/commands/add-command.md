@@ -1,6 +1,7 @@
 ---
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
 description: Create a new slash command in the lup plugin
+argument-hint: [name] [description]
 ---
 
 # Add New Command
@@ -11,13 +12,28 @@ Create a new slash command in `.claude/plugins/lup/commands/`.
 
 Help the user create a new slash command. Commands are markdown files with YAML frontmatter.
 
+**Arguments provided**: $ARGUMENTS
+
+### How to Parse Arguments
+
+The first word is the **command name**. Everything after is the **description** (what the command does).
+
+**Examples:**
+- `/lup:add-command review` — name is `review`, description not provided (ask)
+- `/lup:add-command review Analyze PR diffs and suggest improvements` — name is `review`, description is "Analyze PR diffs and suggest improvements"
+
+### If No Arguments Provided
+
+If `$ARGUMENTS` is empty, proceed to Phase 1 and ask for everything.
+
 ## Phase 1: Gather Requirements
 
-Use AskUserQuestion to understand:
+Use AskUserQuestion to gather any info **not already provided via arguments**. Skip questions that were answered inline.
 
 1. **Command name**: What should the command be called? (e.g., `review`, `test`, `deploy`)
 2. **Purpose**: What does this command do?
-3. **Tools needed**: Which tools should be allowed? Common options:
+3. **Arguments**: Does this command accept arguments? If yes, define an `argument-hint` (e.g., `[target]`, `[file] [--verbose]`, `<required-arg>`). Arguments are passed to the command via `$ARGUMENTS`.
+4. **Tools needed**: Which tools should be allowed? Common options:
    - `Read, Glob, Grep` - For read-only exploration
    - `Read, Write, Edit, Glob, Grep` - For file modifications
    - `Bash, Read, Write, Edit, Glob, Grep` - For running commands + file ops
@@ -31,6 +47,7 @@ Create the file at `.claude/plugins/lup/commands/<name>.md`:
 ---
 allowed-tools: <tools from phase 1>
 description: <one-line description>
+argument-hint: <hint from phase 1, omit if no arguments>
 ---
 
 # <Command Title>
@@ -39,7 +56,10 @@ description: <one-line description>
 
 ## Your Task
 
+**Arguments provided**: $ARGUMENTS
+
 <Instructions for Claude when this command is invoked>
+<If the command accepts arguments, include parsing logic for $ARGUMENTS>
 
 ## Steps
 
@@ -82,24 +102,29 @@ Analyze the codebase structure and report findings.
 4. Report findings in a structured format
 ```
 
-### Interactive workflow command:
+### Command with arguments:
 
 ```markdown
 ---
-allowed-tools: Bash, Read, Write, Edit, Glob, Grep, AskUserQuestion
-description: Interactive code review workflow
+allowed-tools: Bash, Read, Glob, Grep
+description: Run tests for a specific module
+argument-hint: [module-name] [--verbose]
 ---
 
-# Code Review
+# Run Module Tests
 
-Guide the user through a code review.
+Run tests for a specific module.
 
 ## Your Task
 
-1. Ask what to review
-2. Read the relevant files
-3. Provide feedback
-4. Offer to make changes
+**Arguments provided**: $ARGUMENTS
+
+Parse the arguments: first word is the module name, `--verbose` flag enables detailed output.
+If no module name provided, ask the user which module to test.
+
+1. Find test files for the module
+2. Run the tests
+3. Report results
 ```
 
 ## Notes
@@ -108,3 +133,6 @@ Guide the user through a code review.
 - Keep descriptions under 80 characters
 - Include clear steps in the command body
 - Use AskUserQuestion for interactive commands
+- Add `argument-hint` frontmatter when the command accepts arguments — use `[optional]` brackets and `<required>` angles
+- Reference `$ARGUMENTS` in the command body to receive the user's input
+- Always include a fallback (e.g., AskUserQuestion) when arguments are empty

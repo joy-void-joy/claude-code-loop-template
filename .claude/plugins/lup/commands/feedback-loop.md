@@ -55,6 +55,21 @@ What to AVOID:
 
 Keep the system prompt fresh - periodically review and remove guidance that no longer applies.
 
+## Phase 0: Read Previous Analysis
+
+**Before collecting any data, read what was already done.** This prevents double-fixing.
+
+```bash
+# Check what the last session found and changed
+ls notes/feedback_loop/
+cat notes/feedback_loop/*_analysis.md | tail -50
+```
+
+Read the most recent `*_analysis.md` file. Understand:
+- What problems were already identified and fixed
+- What sessions were already analyzed
+- What changes were already made
+
 ## Phase 1: Ground Truth - What Actually Matters
 
 The ONLY true ground truth is **outcomes**. Everything else is proxy signal.
@@ -62,13 +77,19 @@ The ONLY true ground truth is **outcomes**. Everything else is proxy signal.
 ### 1a. Collect Feedback Data
 
 ```bash
+# Check current agent version
+grep AGENT_VERSION src/lup/version.py
+
 # Customize this for your domain
-uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
+uv run lup-devtools feedback collect --all-time
 ```
+
+**Always scope analysis to the current agent version.** Different versions have different prompts, tools, and subagent configurations. Mixing data across versions produces meaningless aggregate statistics. Use `read_scores_for_version()` or filter `notes/scores.csv` by the `agent_version` column.
 
 **If you have outcome data**: Focus on accuracy/success metrics. This is the REAL signal.
 - Which sessions performed worst? Read their traces.
 - Are there systematic patterns in errors?
+- **Compare across versions** to see if recent changes helped or hurt.
 
 **If you have NO outcomes yet**: You're flying blind on accuracy. Focus on:
 - Process quality (is the agent reasoning well?)
@@ -93,62 +114,90 @@ Different domains have different ground truth:
 
 **This is the most important phase.** Do not skip to aggregate patterns.
 
-### 2a. Read Full Reasoning Traces
+### CRITICAL: Filter by AGENT_VERSION
 
-Traces show exactly what the agent thought and did. They are more detailed than any summary.
+**Every analysis must be version-aware.** Different agent versions have different prompts,
+tools, and subagent configurations. Mixing data across versions produces meaningless
+aggregate statistics.
 
+1. Check the current version: `grep AGENT_VERSION src/lup/version.py`
+2. Filter `notes/scores.csv` by `agent_version` when analyzing outcomes
+3. When comparing to previous versions, always report metrics PER VERSION
+4. If the `agent_version` field is missing or inconsistent, note this as a data quality
+   issue — do not silently include unversioned data in current-version metrics
+
+**Use scores.csv to find best/worst sessions for deep trace reading:**
 ```bash
-# List sessions
-ls notes/traces/
-
-# Read a specific trace
-cat notes/traces/<session_id>/*.md
+# Read scores and filter by version (customize for your domain)
+uv run lup-devtools metrics summary
 ```
 
-### 2b. Sample 5-10 Sessions
+### 2a. Launch Trace Explorer (Subagent)
 
-Pick a sample including:
-- Sessions with poor outcomes (if available)
-- Sessions where tools failed
-- Sessions across different task types
+**Do NOT read traces directly in this conversation.** Traces consume many lines each and will
+exhaust the context window before you reach later phases. Instead, launch the `trace-explorer`
+subagent which reads traces in its own context and returns a compact pattern report.
 
-For each, ask:
-1. **Is the reasoning sound?** Does the logic follow from the evidence?
-2. **What tools worked?** What provided high-value information?
-3. **What tools failed?** What blocked progress?
-4. **What does the agent say it needs?** Explicit capability requests
-
-### 2c. Extract Tool Failures
+**Select which traces to analyze:**
 
 ```bash
-# Tool failures mentioned in traces/reflections
-grep -rh "failed\|error\|Error\|didn't work\|couldn't\|blocked" notes/traces/*.md | sort | uniq -c | sort -rn | head -20
+# List available traces
+uv run lup-devtools trace list
+
+# Find sessions with errors
+uv run lup-devtools trace errors
+
+# Extract capability requests
+uv run lup-devtools trace capabilities
 ```
 
-Common patterns:
-- API returns errors → Fix or add fallback
-- Tool exists but agent doesn't use it → Improve discoverability
-- Tool output is unhelpful → Improve tool design
+**Launch the trace explorer:**
 
-### 2d. Extract Capability Requests
+```
+Task(subagent_type="lup:trace-explorer", prompt="""
+Analyze traces for these session IDs: [list of 5-15 IDs]
 
-```bash
-# What the agent explicitly says it needs
-grep -rh "would be useful\|would have helped\|would benefit\|wish I had\|tool that" notes/traces/*.md | head -20
+Context:
+- Current agent version: [X.Y.Z]
+- Focus areas: [e.g., "tool failures", "reasoning quality", "capability gaps"]
+- Known issues from Phase 1: [brief summary of findings]
+
+Return the standard pattern report.
+""")
 ```
 
-**Trust these requests.** The agent knows what it needs. Build the tools it asks for.
+**What to include in the prompt:**
+- Session IDs to analyze (from scores.csv extremes, or all recent sessions)
+- Current agent version (so the explorer can filter)
+- Any specific focus areas from Phase 1 findings
+- Known issues from the previous feedback session (Phase 0)
 
-### 2e. Evaluate Reasoning Quality
+**What you get back:**
+- Tool failure patterns (aggregated across all traces)
+- Capability requests (what the agent asked for)
+- Reasoning patterns and quality issues
+- Tool usage patterns (high-value vs low-value tools)
+- 2-3 specific traces worth reading in full (outliers or interesting cases)
 
-For sessions with poor outcomes, ask:
-1. Is the agent's evidence valid?
-2. Is the logic sound?
-3. Are there gaps in the analysis?
-4. Would a different approach be MORE justified by the evidence?
+### 2b. Deep-Dive on Flagged Traces (Optional)
+
+The trace explorer flags 2-3 traces worth reading fully. **Only read these if the pattern
+report raises specific questions** that need full-trace context to answer.
+
+If you do read a trace, use the trace analysis script and read it with a
+specific question in mind — don't just browse.
+
+### 2c. Evaluate Findings
+
+Based on the trace explorer's pattern report:
+
+1. **Tool failures**: Which tools fail most? Are they fixable or should we add alternatives?
+2. **Capability requests**: What does the agent say it needs? Trust these requests.
+3. **Reasoning quality**: Are there systematic reasoning errors, or just individual misjudgments?
+4. **Tool value**: Are expensive tools providing proportional value?
 
 **If reasoning is sound**: The failure may be due to genuine uncertainty or missing information.
-**If reasoning is flawed**: Identify the specific failure. Is it a capability gap or a reasoning error?
+**If reasoning is systematically flawed**: Identify whether it's a capability gap or a prompt issue.
 
 ## Phase 3: Meta Level - Analysis Process Quality
 
@@ -172,7 +221,7 @@ Check if the data we collect is sufficient for analysis:
 
 ```bash
 # Check what tracking data we have
-uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py list
+uv run lup-devtools trace list
 ```
 
 ### 3c. Identify Missing Data
@@ -187,6 +236,34 @@ If you find gaps, add tracking in Phase 4.
 ## Phase 4: Implement Changes (Bitter Lesson Order)
 
 **Tools are the highest-leverage change.** The priority order below reflects this — fix and build tools first, simplify prompts last.
+
+**Log every change** in the analysis document (see Documentation Template). The next feedback session reads this (Phase 0) to avoid re-deriving the same improvements. Be specific: "Added X to Y because Z" — not just "improved prompts."
+
+### Priority 0: Evaluate Prompt Health
+
+Before patching individual issues, assess whether the system prompt needs a structural
+rewrite rather than another incremental patch.
+
+**When to rewrite vs patch:**
+
+A full rewrite is warranted when:
+- Sections read as addendums rather than integrated guidance (conditional exceptions, "if X fails, do Y" patches)
+- The same task type has been patched 3+ times across sessions
+- Best-performing traces succeed despite the prompt, not because of it
+- Worst-performing traces fail because the prompt's decision tree doesn't match how the agent should think
+- The prompt has grown >20% since the last rewrite without corresponding improvement
+
+**How to do a principled rewrite:**
+1. **Study the best-performing traces.** Read the full reasoning for the top 5-10 sessions. What patterns do they follow? What decisions led to success?
+2. **Study the worst-performing traces.** Same process for the bottom 5-10. What went wrong — capability gap or reasoning error the prompt could have prevented?
+3. **Read the full current prompt** (`src/lup/agent/prompts.py`). Identify sections that feel patched, redundant, or irrelevant.
+4. **Draft from scratch.** Write the prompt as you would if starting today with all accumulated knowledge. Don't copy-paste — rewrite each section from first principles, incorporating the patterns from best traces.
+5. **Ensure monolithic coherence.** The result must read as a single authored document — no references to "previous behavior," no "Exception:" patches, no "Note: as of version X."
+
+**When NOT to rewrite:**
+- If you found only 1-2 clear bugs or gaps, a targeted patch is better
+- If the prompt's structure is sound and only needs a new principle or tool reference
+- If there isn't enough data (< 20 sessions with outcomes) to identify structural issues
 
 ### Priority 1: Fix Failing Tools
 
@@ -218,18 +295,32 @@ If subagents aren't used:
 - Are they too expensive (time/compute)?
 - Should they be lighter/faster?
 
-### Priority 5: Simplify Prompts
+### Priority 5: Simplify Prompts (Not Add Rules)
 
-Prompts accumulate rules over time and become harder to maintain. Tool changes tend to be more durable because they add capabilities rather than constraints. When modifying prompts:
+For incremental prompt changes (when Priority 0 determined a full rewrite isn't needed):
+- ADD general principles that help across domains
+- REMOVE prescriptive rules that add complexity
+- PREFER "use tool X for Y" over "when pattern P, do Q"
 
-- Add general principles that transfer across domains
-- Remove prescriptive rules that add complexity without clear payoff
-- Keep tool knowledge in tool descriptions (avoids two sources of truth that drift)
-
-Watch out for:
+**Do NOT add**:
 - Specific rules for specific task types (over-fitted, won't generalize)
 - Numeric adjustments ("always add 10% margin") (will become stale)
 - Patches for observed patterns (treat symptoms, not causes)
+- Conditional exceptions that reference specific failure modes
+
+**Track patch count.** If you add a patch this session, count how many patches have been
+added since the last rewrite. If the count exceeds 3, flag it in your analysis — the next
+session should evaluate a full rewrite (Priority 0).
+
+### Version Bumps
+
+After implementing changes that affect agent behavior, **always bump the version** using `/lup:bump`:
+
+- **Patch (0.x.Y)**: Bug fixes, tool fixes, config tweaks. Default when unsure.
+- **Minor (0.X.0)**: Prompt changes, new tools, subagent modifications.
+- **Major (X.0.0)**: Architecture changes (new LLM, new framework, major restructuring).
+
+Data-only or infrastructure changes (scripts, feedback-loop docs) don't need a bump.
 
 ## Phase 5: Meta-Meta Level - Improve This Document
 
@@ -246,16 +337,7 @@ If yes to any, update this document NOW before you forget.
 
 ### 5b. Build Missing Scripts
 
-If you found yourself doing repetitive analysis, automate it:
-
-```bash
-# Scripts that should exist:
-uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --help
-uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py --help
-uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py --help
-```
-
-If you need a script that doesn't exist, create it and document it in CLAUDE.md.
+If you found yourself doing repetitive analysis, automate it by adding a command to `src/lup/devtools/`. Use `uv run lup-devtools --help` to see existing commands.
 
 ### 5c. Improve Data Collection
 
@@ -277,8 +359,11 @@ Every session should leave this document better:
 ### DON'T: Patch prompts for observed patterns
 ❌ "When doing X, always subtract 10%"
 ❌ "For Y tasks, cap confidence at 70%"
+❌ Adding "Exception:" clauses to existing rules
+❌ "If X fails, do Y" conditional patches
 ✅ Build tool that provides historical calibration data
 ✅ Add general principle about uncertainty
+✅ When patches accumulate, rewrite the section from scratch (Priority 0)
 
 ### DON'T: Over-rely on proxy metrics
 ❌ "Large divergence from baseline means we're wrong"
@@ -355,24 +440,73 @@ Write to `notes/feedback_loop/<timestamp>_analysis.md`:
 
 ```bash
 # Collect feedback data
-uv run python .claude/plugins/lup/scripts/loop/feedback_collect.py --all-time
+uv run lup-devtools feedback collect --all-time
 
 # Analyze traces
-uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py show <session_id>
-uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py search "error"
-uv run python .claude/plugins/lup/scripts/loop/trace_analysis.py errors
+uv run lup-devtools trace show <session_id>
+uv run lup-devtools trace search "error"
+uv run lup-devtools trace errors
 
 # Aggregate metrics
-uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py summary
-uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py tools
-uv run python .claude/plugins/lup/scripts/loop/aggregate_metrics.py errors
+uv run lup-devtools metrics summary
+uv run lup-devtools metrics tools
+uv run lup-devtools metrics errors
 ```
+
+## Periodic Maintenance
+
+Every few feedback loop sessions, take time to:
+
+1. **Reread this entire document** - Is it still accurate? Remove outdated guidance.
+2. **Prompt health audit** - Read the entire system prompt (`src/lup/agent/prompts.py`) with fresh eyes. Does it read as a coherent, monolithic document? Are there visible patches? Would a new reader understand the decision tree? If not, trigger a rewrite (Phase 4, Priority 0).
+3. **Refactor scripts** - Consolidate duplicate functionality in feedback loop scripts, improve error handling.
+4. **Clean up notes/** - Archive old analysis files, ensure naming is consistent.
+5. **Update CLAUDE.md** - Sync any learnings that should persist to the main project docs.
 
 ## Key Questions to Answer Each Session
 
-1. **Do we have outcome data?** If no, focus on process not accuracy.
-2. **What's our success rate?** This is the REAL metric (when available).
-3. **What tools fail repeatedly?** Fix or replace them.
-4. **What does the agent say it needs?** Trust and provide.
-5. **Is the agent's reasoning sound?** Read traces deeply to find out.
-6. **What would make this process better?** Update this document.
+1. **What AGENT_VERSION am I analyzing?** Filter ALL data by version. Do not mix versions.
+2. **Do we have outcome data?** If no, focus on process not accuracy.
+3. **What's our success rate FOR THIS VERSION?** Compare to previous version to see if recent changes helped.
+4. **What tools fail repeatedly?** Fix or replace them.
+5. **What tools go unused?** Check traces for tools that were available but never called.
+6. **What does the agent say it needs?** Trust and provide.
+7. **Is the agent's reasoning sound?** Read traces deeply (via trace-explorer) to find out.
+8. **Is the prompt accumulating patches?** Count conditional exceptions added in recent sessions. If >3 patches since last rewrite, evaluate a structural rewrite (Phase 4, Priority 0).
+9. **What would make this process better?** Update this document.
+
+## Phase 6: Queue Next Evaluation
+
+**This is the final output of every feedback loop session.** After all analysis and changes are complete, propose the next batch of sessions to run.
+
+### Why This Is Last
+
+Each feedback loop session should:
+1. Analyze existing sessions (Phases 1-2)
+2. Make improvements based on findings (Phase 4)
+3. Queue NEW sessions that will test whether those improvements helped
+
+### Selection Criteria
+
+Choose sessions that:
+- Are diverse in task type (cover different capabilities)
+- Would test the agent's reasoning on challenging topics
+- Exercise recently fixed or newly added tools
+- Include edge cases where the agent previously struggled
+
+### Output Format
+
+End your analysis document with the proposed session commands:
+
+```bash
+# Evaluation queue from feedback loop YYYY-MM-DD
+# Rationale: [brief explanation of what these test]
+uv run python -m lup.environment.cli loop "task1" "task2" "task3"
+```
+
+### Feedback Cycle
+
+The user runs the sessions, then the next feedback loop session:
+1. Collects those results in Phase 1
+2. Evaluates quality against the improvements made
+3. Queues more sessions → repeat
