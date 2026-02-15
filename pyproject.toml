@@ -18,6 +18,7 @@ dependencies = [
 
 [project.scripts]
 lup = "lup.environment.cli.__main__:app"
+lup-devtools = "lup.devtools.main:app"
 
 [dependency-groups]
 dev = [
@@ -38,8 +39,10 @@ build-backend = "setuptools.build_meta"
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = ["integration: tests requiring external services (Docker, APIs)"]
 
 [tool.pyright]
+include = ["src", "tests"]
 pythonVersion = "3.13"
 venvPath = "."
 venv = ".venv"
