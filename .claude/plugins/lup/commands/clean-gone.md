@@ -1,11 +1,37 @@
 ---
 allowed-tools: Bash(git:*), Bash(gh:*), AskUserQuestion
+argument-hint: [branch-name]
 description: Review branches/worktrees and clean up merged ones
 ---
 
 # Clean Merged Branches
 
 Review all local branches and worktrees. Identify branches that are fully merged (into main or any other active branch) or have completed PRs. Present the merge graph and ask before deleting.
+
+## Arguments
+
+- **branch-name** (optional): Name of a specific branch to remove. If provided, runs in targeted mode. If omitted, runs a full scan of all branches.
+
+Raw arguments: `$ARGUMENTS`
+
+Parse the raw arguments as follows: if non-empty, the first word is the **branch name** (not a natural-language instruction). Ignore any remaining words.
+
+## Targeted Mode (branch name provided)
+
+If a branch name is given as an argument, skip the full inventory and target just that branch:
+
+1. **Fetch and prune**: `git fetch --prune`
+2. **Verify the branch exists**: `git branch --list <branch-name>`. If not found, report and stop.
+3. **Check safety**:
+   - Is it the current branch? Warn and stop.
+   - Does it have a worktree? Note for removal.
+   - Is it merged into main? (`git merge-base --is-ancestor`)
+   - Does it have a PR? (`gh pr list --state all --head <branch-name>`)
+4. **Report status** and **confirm with user** via AskUserQuestion before deleting.
+5. **Remove worktree** if applicable, then **delete the branch** (`-d`, escalate to `-D` only with user approval), then **delete remote** if it exists.
+6. **Report results**.
+
+## Full Scan Mode (no argument)
 
 ## Process
 
