@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Self-improving agent template with feedback loop, built with the Claude Agent SDK"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "claude-agent-sdk>=0.1.26",
     "httpx>=0.28.1",
@@ -42,7 +42,7 @@ pythonpath = ["src"]
 markers = ["integration: tests requiring external services (Docker, APIs)"]
 
 [tool.pyright]
+pythonVersion = "3.14"
 include = ["src", "tests"]
-pythonVersion = "3.13"
 venvPath = "."
 venv = ".venv"

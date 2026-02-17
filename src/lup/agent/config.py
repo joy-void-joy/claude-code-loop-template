@@ -67,13 +67,13 @@ class Settings(BaseSettings):
     # ==========================================================================
 
     model: str = Field(
-        default="claude-sonnet-4-20250514",
+        default="claude-opus-4-6",
         validation_alias="AGENT_MODEL",
         description="Claude model to use",
     )
 
     max_thinking_tokens: int | None = Field(
-        default=None,
+        default=128_000 - 1,
         validation_alias="AGENT_MAX_THINKING_TOKENS",
         description="Max thinking tokens (None = model default)",
     )
