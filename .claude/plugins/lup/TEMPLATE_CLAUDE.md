@@ -221,6 +221,12 @@ When improving the agent, prefer:
 | Provide state/context via tools | Use f-string prompt engineering |
 | Create subagents for specialized work | Build complex pipelines in main agent |
 
+### Persistent Agent Pattern
+
+For agents that exist over time, the architecture inverts: the agent is a **persistent presence** that controls its own attention, not a processor steered by an event queue. The agent never ends its turn (Stop hook blocks it). Instead it cycles: wake → read context → think → act → sleep. All timing is tools — sleep, debounce, remind, schedule — so the agent decides when to engage, wait, or come back.
+
+See `src/<project>/lib/realtime.py` for the Scheduler and `src/<project>/agent/tools/realtime.py` for template tools.
+
 ### Three Levels of Analysis
 
 1. **Object Level** -- The agent itself: tools, capabilities, behavior

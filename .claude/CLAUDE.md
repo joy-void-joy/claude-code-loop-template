@@ -61,6 +61,25 @@ Compare: `"Search the web for information"` vs. `"Search the web using keyword q
 
 The first leaves the agent guessing about when and why. The second makes the tool self-selecting — the agent can match its situation to the description without prompt-level instructions.
 
+### Persistent Agent Pattern
+
+For agents that exist over time — maintaining conversations, monitoring systems, playing games, running autonomous workflows — the architecture inverts: the agent is a **persistent presence** that controls its own attention, not a processor steered by an event queue.
+
+| Do This | Not This |
+|---------|----------|
+| Agent sleeps when it chooses, wakes on events | Event queue drives agent responses |
+| All timing is tools (sleep, debounce, remind, schedule) | Hardcode delays or polling in orchestration |
+| Stop hook prevents turn from ending — only sleep yields | Request-response per event |
+| Pull-based state reading (agent calls `context` when ready) | Push state changes as SDK user turns |
+| Agent parks thoughts (ideas, reminders) for later | Drop context between interactions |
+| Expose environment state as tool-readable data | Hide activity from the agent |
+
+**The core loop:** The agent never ends its turn. A Stop hook blocks it. Instead it cycles: wake → read context → think → act → meta-assess → sleep. The only way to yield control is `sleep()`, which blocks on an asyncio Event until something wakes it (external event, timer, reminder). This keeps the agent centered — it decides when to engage, when to wait, and when to come back.
+
+**Why not an event queue?** A queue steers the agent by its inputs — every event forces a reaction. The sleep/wake pattern lets the agent stay centered. It can debounce event bursts, schedule actions, set reminders, and park thoughts for later — all on its own terms. The agent continues thinking across sleep cycles rather than starting fresh on each event.
+
+**Library support:** `src/lup/lib/realtime.py` provides the `Scheduler` class (sleep/wake, debounce, scheduled actions, reminders, delayed actions) and hook factories (`create_stop_guard`, `create_pending_event_guard`). See the example tools in `src/lup/agent/tools/realtime.py`.
+
 ---
 
 # Getting Started
@@ -79,6 +98,7 @@ The first leaves the agent guessing about when and why. The second makes the too
 - **src/lup/lib/hooks.py**: Hook utilities and composition
 - **src/lup/lib/trace.py**: Trace logging, output formatting, color-coded console display
 - **src/lup/lib/metrics.py**: Tool call tracking
+- **src/lup/lib/realtime.py**: Scheduler for persistent agents (sleep/wake, debounce, reminders)
 - **src/lup/lib/scoring.py**: CSV result tracking and score generation
 
 **Top-level:**
@@ -204,7 +224,15 @@ Edit `src/lup/version.py`:
 - Set initial `AGENT_VERSION`
 - Bump on behavior changes (prompts, tools, subagents)
 
-### Step 5: Update Feedback Collection
+### Step 7: Enable Persistent Agent Mode (Optional)
+
+For agents that exist over time (conversations, monitoring, games), use the persistent agent pattern:
+- Wire `Scheduler` from `lib/realtime.py` into your session
+- Add Stop hook to prevent turn ending (`create_stop_guard`)
+- Implement sleep/context/reply tools from `agent/tools/realtime.py`
+- Replace the request-response `run_agent()` in `core.py` with a sleep/wake loop
+
+### Step 8: Update Feedback Collection
 
 Edit `src/lup/devtools/feedback.py`:
 - Implement `load_outcomes()` for your domain
@@ -301,6 +329,7 @@ src/
     │   ├── metrics.py          # Tool call tracking (@tracked decorator)
     │   ├── mcp.py              # MCP server creation utilities
     │   ├── notes.py            # RO/RW directory structure
+    │   ├── realtime.py         # Scheduler for persistent agents (sleep/wake, debounce)
     │   ├── responses.py        # MCP response formatting
     │   ├── retry.py            # Retry decorator with backoff
     │   ├── scoring.py          # CSV result tracking and score generation
@@ -313,7 +342,8 @@ src/
     │   ├── subagents.py        # Subagent definitions
     │   ├── tool_policy.py      # Conditional tool availability
     │   └── tools/
-    │       └── example.py      # Example MCP tools (customize)
+    │       ├── example.py      # Example MCP tools (customize)
+    │       └── realtime.py     # Real-time tools template (sleep, context, reply)
     ├── devtools/               # Development CLI (lup-devtools entry point)
     │   ├── main.py             # Root Typer app composing sub-apps
     │   ├── api.py              # API inspection and module info
