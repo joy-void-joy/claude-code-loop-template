@@ -40,6 +40,17 @@ from lup.lib.metrics import (
     tracked,
 )
 from lup.lib.notes import NotesConfig, path_is_under, setup_notes
+from lup.lib.realtime import (
+    ActionCallback,
+    DebounceInput,
+    RemindInput,
+    ScheduleActionInput,
+    Scheduler,
+    SleepInput,
+    create_meta_before_sleep_guard,
+    create_pending_event_guard,
+    create_stop_guard,
+)
 from lup.lib.responses import mcp_error, mcp_response, mcp_success
 from lup.lib.scoring import (
     append_score_row,
@@ -93,6 +104,16 @@ __all__ = [
     "NotesConfig",
     "path_is_under",
     "setup_notes",
+    # Realtime
+    "ActionCallback",
+    "DebounceInput",
+    "RemindInput",
+    "ScheduleActionInput",
+    "Scheduler",
+    "SleepInput",
+    "create_meta_before_sleep_guard",
+    "create_pending_event_guard",
+    "create_stop_guard",
     # Responses
     "mcp_error",
     "mcp_response",
