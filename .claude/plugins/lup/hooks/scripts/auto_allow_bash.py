@@ -34,10 +34,13 @@ class Deny(BaseModel):
 RULES: list[Allow | Deny] = [
     # Safe read-only / common commands
     Allow(pattern=r"^ls\b"),
+    Allow(pattern=r"^tree\b"),
     Allow(pattern=r"^grep\b"),
     Allow(pattern=r"|\sxargs\b"),
     Allow(pattern=r"^test "),
     Allow(pattern=r"^find"),
+    # GitHub CLI (read-only)
+    Allow(pattern=r"^gh (pr|issue) (list|view|diff|status)\b"),
     # Git (safe subset)
     Allow(
         pattern=r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b"
