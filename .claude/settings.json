@@ -26,5 +26,9 @@
       }
     }
   },
-  "coauthorship": false
+  "coauthorship": false,
+  "fileSuggestion": {
+    "type": "command",
+    "command": ".claude/plugins/lup/scripts/file_suggest.sh"
+  }
 }
