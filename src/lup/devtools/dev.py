@@ -9,6 +9,11 @@ import typer
 
 app = typer.Typer(no_args_is_help=True)
 
+_git = sh.Command("git")
+_uv = sh.Command("uv")
+_xclip = sh.Command("xclip")
+_xsel = sh.Command("xsel")
+
 PLUGIN_CACHE_DIR = Path.home() / ".claude" / "plugins" / "cache" / "local" / "lup"
 
 GITIGNORED_EXTRAS = [
@@ -23,7 +28,7 @@ GITIGNORED_EXTRAS = [
 def _branch_exists(branch: str) -> bool:
     """Check if a git branch exists (local only)."""
     try:
-        sh.git("rev-parse", "--verify", f"refs/heads/{branch}")
+        _git("rev-parse", "--verify", f"refs/heads/{branch}")
         return True
     except sh.ErrorReturnCode:
         return False
@@ -31,7 +36,7 @@ def _branch_exists(branch: str) -> bool:
 
 def _worktree_is_registered(path: Path) -> bool:
     """Check if a path is registered as a git worktree (even if dir is missing)."""
-    output = str(sh.git("worktree", "list", "--porcelain"))
+    output = str(_git("worktree", "list", "--porcelain"))
     resolved = str(path.resolve())
     for line in output.splitlines():
         if line.startswith("worktree ") and line.split(" ", 1)[1] == resolved:
@@ -111,7 +116,7 @@ def worktree_cmd(
         shutil.rmtree(worktree_path)
 
     # Prune stale worktree entries so git doesn't complain
-    sh.git("worktree", "prune")
+    _git("worktree", "prune")
 
     if branch_already_exists:
         typer.echo(f"Re-attaching worktree: {worktree_path}")
@@ -122,13 +127,13 @@ def worktree_cmd(
 
     try:
         if branch_already_exists:
-            sh.git("worktree", "add", str(worktree_path), branch_name)
+            _git("worktree", "add", str(worktree_path), branch_name)
         elif base_branch:
-            sh.git(
+            _git(
                 "worktree", "add", str(worktree_path), "-b", branch_name, base_branch
             )
         else:
-            sh.git("worktree", "add", str(worktree_path), "-b", branch_name)
+            _git("worktree", "add", str(worktree_path), "-b", branch_name)
     except sh.ErrorReturnCode as e:
         typer.echo(f"Error creating worktree: {e.stderr.decode()}")
         raise typer.Exit(1)
@@ -150,7 +155,7 @@ def worktree_cmd(
     if not no_sync:
         typer.echo("Running uv sync...")
         try:
-            sh.uv("sync", _cwd=str(worktree_path))
+            _uv("sync", _cwd=str(worktree_path))
         except sh.ErrorReturnCode as e:
             typer.echo(f"Warning: uv sync failed: {e.stderr.decode()}")
 
@@ -178,11 +183,11 @@ def worktree_cmd(
     cd_command = f"cd /; cd {worktree_path}; claude"
 
     try:
-        sh.xclip("-selection", "clipboard", _in=cd_command)
+        _xclip("-selection", "clipboard", _in=cd_command)
         typer.echo(f"Copied to clipboard: {cd_command}")
     except (sh.ErrorReturnCode, sh.CommandNotFound):
         try:
-            sh.xsel("--clipboard", "--input", _in=cd_command)
+            _xsel("--clipboard", "--input", _in=cd_command)
             typer.echo(f"Copied to clipboard: {cd_command}")
         except (sh.ErrorReturnCode, sh.CommandNotFound):
             typer.echo("Done! To switch to the new worktree:")
