@@ -3,7 +3,7 @@
 This is a TEMPLATE. Add hooks for your domain's needs.
 
 Key patterns:
-1. HooksConfig TypedDict for type-safe hook configuration
+1. HooksConfig type alias for type-safe hook configuration
 2. merge_hooks() to compose multiple hook sources
 3. create_permission_hooks() for directory-based access control
 4. Post-tool hooks for response inspection/injection
@@ -19,9 +19,9 @@ Usage:
 """
 
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Literal, cast
 
-from claude_agent_sdk import HookMatcher
+from claude_agent_sdk import HookInput, HookMatcher
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
 from lup.lib.notes import path_is_under
@@ -39,20 +39,12 @@ HookEventType = Literal[
 ]
 
 
-class HooksConfig(TypedDict, total=False):
-    """Typed hook configuration for ClaudeAgentOptions.
+type HooksConfig = dict[HookEventType, list[HookMatcher]]
+"""Typed hook configuration for ClaudeAgentOptions.
 
-    Each key is a hook event type, and the value is a list of HookMatcher
-    instances that will be invoked for that event.
-    """
-
-    PreToolUse: list[HookMatcher]
-    PostToolUse: list[HookMatcher]
-    PostToolUseFailure: list[HookMatcher]
-    UserPromptSubmit: list[HookMatcher]
-    Stop: list[HookMatcher]
-    SubagentStop: list[HookMatcher]
-    PreCompact: list[HookMatcher]
+Each key is a hook event type, and the value is a list of HookMatcher
+instances that will be invoked for that event.
+"""
 
 
 def merge_hooks(base: HooksConfig, additional: HooksConfig) -> HooksConfig:
@@ -68,13 +60,13 @@ def merge_hooks(base: HooksConfig, additional: HooksConfig) -> HooksConfig:
     Returns:
         New HooksConfig with combined matchers.
     """
-    merged: HooksConfig = dict(base)  # type: ignore[assignment]
+    merged: HooksConfig = dict(base)
 
     for event in additional:
         if event in merged:
-            merged[event] = merged[event] + additional[event]  # type: ignore[literal-required]
+            merged[event] = merged[event] + additional[event]
         else:
-            merged[event] = additional[event]  # type: ignore[literal-required]
+            merged[event] = additional[event]
 
     return merged
 
@@ -100,16 +92,16 @@ def create_permission_hooks(
     all_readable = rw_dirs + ro_dirs
 
     async def permission_hook(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
         """Control tool access based on directory permissions."""
-        if input_data.get("hook_event_name") != "PreToolUse":
+        if input_data["hook_event_name"] != "PreToolUse":
             return SyncHookJSONOutput()
 
-        tool_name = input_data.get("tool_name", "")
-        tool_input = input_data.get("tool_input", {})
+        tool_name = input_data["tool_name"]
+        tool_input = input_data["tool_input"]
         hook_event = input_data["hook_event_name"]
 
         def deny(reason: str) -> SyncHookJSONOutput:
@@ -173,9 +165,9 @@ def create_permission_hooks(
         # Auto-allow everything else
         return allow()
 
-    return {
+    return cast(HooksConfig, {
         "PreToolUse": [HookMatcher(hooks=[permission_hook])],
-    }
+    })
 
 
 # =============================================================================
@@ -196,16 +188,16 @@ def create_post_tool_hooks() -> HooksConfig:
     """
 
     async def example_post_hook(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
         """Example post-tool hook."""
-        if input_data.get("hook_event_name") != "PostToolUse":
+        if input_data["hook_event_name"] != "PostToolUse":
             return SyncHookJSONOutput()
 
-        tool_name = input_data.get("tool_name", "")
-        tool_response = input_data.get("tool_response", {})
+        tool_name = input_data["tool_name"]
+        tool_response = input_data["tool_response"]
 
         # Example: detect WebFetch issues
         if tool_name == "WebFetch":
@@ -227,9 +219,9 @@ def create_post_tool_hooks() -> HooksConfig:
 
         return SyncHookJSONOutput()
 
-    return {
+    return cast(HooksConfig, {
         "PostToolUse": [HookMatcher(hooks=[example_post_hook])],
-    }
+    })
 
 
 def create_tool_allowlist_hook(
@@ -244,14 +236,14 @@ def create_tool_allowlist_hook(
     allowed = frozenset(allowed_tools)
 
     async def allowlist_hook(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
-        if input_data.get("hook_event_name") != "PreToolUse":
+        if input_data["hook_event_name"] != "PreToolUse":
             return SyncHookJSONOutput()
 
-        tool_name = input_data.get("tool_name", "")
+        tool_name = input_data["tool_name"]
         if tool_name in allowed:
             return SyncHookJSONOutput(
                 hookSpecificOutput={
@@ -267,6 +259,6 @@ def create_tool_allowlist_hook(
             }
         )
 
-    return {
+    return cast(HooksConfig, {
         "PreToolUse": [HookMatcher(hooks=[allowlist_hook])],
-    }
+    })

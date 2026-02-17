@@ -25,9 +25,11 @@ implementations that wrap this scheduler.
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable
+from typing import Any, Awaitable, Callable, cast
 
 from pydantic import BaseModel, Field
+
+from lup.lib.hooks import HooksConfig
 
 logger = logging.getLogger(__name__)
 
@@ -410,14 +412,14 @@ class Scheduler:
 # =====================================================================
 
 
-def create_stop_guard() -> dict[str, Any]:
+def create_stop_guard() -> HooksConfig:
     """Create a Stop hook that prevents the agent from ending its turn.
 
     The agent must use the ``sleep`` tool to yield control. This keeps
     the agent in a persistent loop: wake → act → sleep → wake.
 
     Returns:
-        HooksConfig dict with a Stop hook.
+        HooksConfig with a Stop hook.
 
     Usage:
         from lup.lib.realtime import create_stop_guard
@@ -425,26 +427,26 @@ def create_stop_guard() -> dict[str, Any]:
 
         hooks = merge_hooks(permission_hooks, create_stop_guard())
     """
-    from claude_agent_sdk import HookMatcher
+    from claude_agent_sdk import HookInput, HookMatcher
     from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
     async def stop_guard(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
-        if input_data.get("hook_event_name") != "Stop":
+        if input_data["hook_event_name"] != "Stop":
             return SyncHookJSONOutput()
-        if input_data.get("stop_hook_active"):
+        if input_data["stop_hook_active"]:
             return SyncHookJSONOutput()
         return SyncHookJSONOutput(
             decision="block",
             reason="You cannot end your turn. Use sleep to pause between turns.",
         )
 
-    return {
+    return cast(HooksConfig, {
         "Stop": [HookMatcher(hooks=[stop_guard])],
-    }
+    })
 
 
 def create_pending_event_guard(
@@ -452,7 +454,7 @@ def create_pending_event_guard(
     check_unread: Callable[[], int],
     scheduler: Scheduler,
     guarded_tools: list[str],
-) -> dict[str, Any]:
+) -> HooksConfig:
     """Create a PreToolUse hook that blocks timing tools when unread events exist.
 
     Forces the agent to call ``context`` before sleeping or scheduling.
@@ -463,17 +465,19 @@ def create_pending_event_guard(
         guarded_tools: MCP tool names to guard (e.g., ``["mcp__session__sleep"]``).
 
     Returns:
-        HooksConfig dict with PreToolUse hooks.
+        HooksConfig with PreToolUse hooks.
     """
-    from claude_agent_sdk import HookMatcher
+    from claude_agent_sdk import HookInput, HookMatcher
     from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
     async def event_guard(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
-        tool_input = input_data.get("tool_input", {})
+        if input_data["hook_event_name"] != "PreToolUse":
+            return SyncHookJSONOutput()
+        tool_input = input_data["tool_input"]
         if tool_input.get("force", False):
             return SyncHookJSONOutput()
         if tool_input.get("debounce_initial") is not None:
@@ -492,19 +496,19 @@ def create_pending_event_guard(
             reason=(f"Blocked — {unread} unread event(s). Call context first."),
         )
 
-    return {
+    return cast(HooksConfig, {
         "PreToolUse": [
             HookMatcher(matcher=tool_name, hooks=[event_guard])
             for tool_name in guarded_tools
         ],
-    }
+    })
 
 
 def create_meta_before_sleep_guard(
     *,
     scheduler: Scheduler,
     sleep_tool_name: str,
-) -> dict[str, Any]:
+) -> HooksConfig:
     """Create a PreToolUse hook that requires meta before sleep.
 
     Forces the agent to call the ``meta`` tool (process self-assessment)
@@ -516,13 +520,13 @@ def create_meta_before_sleep_guard(
         sleep_tool_name: MCP tool name for sleep (e.g., ``"mcp__session__sleep"``).
 
     Returns:
-        HooksConfig dict with PreToolUse hooks.
+        HooksConfig with PreToolUse hooks.
     """
-    from claude_agent_sdk import HookMatcher
+    from claude_agent_sdk import HookInput, HookMatcher
     from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
     async def meta_guard(
-        input_data: Any,
+        input_data: HookInput,
         _tool_use_id: str | None,
         _context: HookContext,
     ) -> SyncHookJSONOutput:
@@ -535,8 +539,8 @@ def create_meta_before_sleep_guard(
             )
         return SyncHookJSONOutput()
 
-    return {
+    return cast(HooksConfig, {
         "PreToolUse": [
             HookMatcher(matcher=sleep_tool_name, hooks=[meta_guard]),
         ],
-    }
+    })

@@ -99,7 +99,7 @@ def _build_options(
         max_thinking_tokens=settings.max_thinking_tokens or (128_000 - 1),
         permission_mode="bypassPermissions",
         extra_args={"no-session-persistence": None},
-        hooks=hooks,  # type: ignore[arg-type]
+        hooks=hooks,
         sandbox={
             "enabled": True,
             "autoAllowBashIfSandboxed": True,
