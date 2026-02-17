@@ -35,7 +35,10 @@ The single most important principle for improving this agent: **give it more too
 |---------|----------|
 | Add tools that provide data | Add prompt rules that constrain behavior |
 | Apply general principles | Apply specific pattern patches |
+| Communicate principles and the *why* | Prescribe rigid mechanical procedures |
 | Provide state/context via tools | Use f-string prompt engineering |
+| Set `model=opus 4.6`, `max_thinking_tokens=128_000-1` | Compensate for weak reasoning with complex prompts |
+| See what went wrong from first principles | Make small edits to patch one mistake |
 | Create subagents for specialized work | Build complex pipelines in main agent |
 
 **Tools are the primary scaffold.** When the agent struggles, the answer is almost always a missing tool — not a missing prompt paragraph. A tool that returns the right data at the right time is worth more than any amount of prompt engineering.
@@ -621,6 +624,8 @@ When the user provides documentation links, incorporate that knowledge into CLAU
 
 See [The Bitter Lesson](#the-bitter-lesson) and [Tool Design Philosophy](#tool-design-philosophy) above — these are the governing principles for all agent improvements.
 
+**When analyzing failures:** Ask "what general principle would have prevented this?" not "what specific rule would catch this case?" If the agent made one bad decision, the fix is almost never a prompt line about that specific decision. Instead: does the agent have enough context? Does it have the right tools? Is the model strong enough?
+
 ### Three Levels of Analysis
 
 1. **Object Level** -- The agent itself: tools, capabilities, behavior
@@ -669,7 +674,10 @@ Configuration is loaded via pydantic-settings. See `src/lup/agent/config.py` for
 # Anti-Patterns to Avoid
 
 - Adding numeric patches ("subtract 10% from estimates")
+- Prompting Lup with rigid mechanical procedures instead of guidelines and rationale
+- Adding absolute thresholds ("if X happens N times, do Y")
 - Adding rules the agent can't act on (no access to required data)
+- Making small edits to patch one mistake instead of finding the general cause
 - Listing tools by name in the system prompt (creates two sources of truth that drift apart)
 - Writing terse tool descriptions (the agent can't use a tool well if it doesn't know when or why)
 - Skipping trace analysis to jump to aggregate statistics
@@ -682,4 +690,5 @@ When proposing changes:
 1. Does this add a capability or just a rule?
 2. Would this help if the domain changed completely?
 3. Are we changing the right level (object/meta/meta-meta)?
-4. What data would we need to validate this change worked?
+4. What general principle would have prevented this failure?
+5. What data would we need to validate this change worked?
