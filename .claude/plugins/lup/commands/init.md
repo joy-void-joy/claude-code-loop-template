@@ -7,7 +7,9 @@ description: Initialize the self-improvement loop for a specific domain
 
 This command sets up the project identity, renames the source package, and customizes the feedback collection, metrics, and trace analysis for your specific agent domain.
 
-**This project uses the Claude Agent SDK.** The Agent SDK is the default and expected framework. If the user wants to use the bare Anthropic API instead, ask them to explain why — the Agent SDK provides structured outputs, tool use, subagents, and hooks out of the box.
+**This project uses the Claude Agent SDK.** The Agent SDK is the default and expected framework. Always use `ClaudeSDKClient` (not bare `query()`) for async safety and modularity.
+
+**Bitter Lesson principle:** When generating prompts and scaffolding, communicate goals, rationale, and guidelines — not rigid mechanical procedures. Give the agent more tools and information rather than more rules. Absolute thresholds are always suspect.
 
 ## Your Task
 
@@ -90,7 +92,7 @@ Rename `src/lup/` to `src/<project>/` where `<project>` is the name from Phase 1
 4. **Update CLI** (`src/<project>/environment/cli/__main__.py`):
    - `app = typer.Typer(name="lup", ...)` → `name="<project>"`
 
-5. **Update CLAUDE.md** — replace all `src/lup/` with `src/<project>/`, `lup.agent` with `<project>.agent`, etc. Use a script in `./tmp/` for bulk replacements.
+5. **Update CLAUDE.md** — use `.claude/plugins/lup/TEMPLATE_CLAUDE.md` as the base template. Replace all `src/lup/` with `src/<project>/`, `lup.agent` with `<project>.agent`, `<project>` placeholders, etc. Use a script in `./tmp/` for bulk replacements.
 
 6. **Update logger names** in `src/<project>/lib/trace.py`:
    - `"lup.agent.stream"` → `"<project>.agent.stream"`
@@ -116,7 +118,7 @@ Customize AgentOutput for the domain:
 - Add domain-specific columns to `src/<project>/lib/scoring.py` CSV_COLUMNS
 
 ### 2. `src/<project>/agent/prompts.py`
-Update the system prompt template for the domain. Focus on what the agent does and how to reason — tools self-document via their descriptions, so listing them in the prompt creates a second source of truth that drifts as tools change.
+Update the system prompt template for the domain. Communicate goals, constraints, and the *why* — avoid rigid mechanical procedures. Tools self-document via their descriptions, so listing them in the prompt creates a second source of truth that drifts as tools change.
 
 ### 3. `src/<project>/agent/subagents.py`
 Create domain-appropriate subagents (researcher, analyzer, etc.)
@@ -135,7 +137,7 @@ Set initial AGENT_VERSION and explain bump rules for this domain.
 The main feedback collection script. Customize for the domain's ground truth type.
 
 ### 7. Update `CLAUDE.md`
-Add domain-specific sections:
+The CLAUDE.md should already be based on `.claude/plugins/lup/TEMPLATE_CLAUDE.md` from Phase 2. Now fill in the domain-specific placeholders:
 - Project overview with domain description
 - Commands specific to the domain
 - Metrics and feedback collection instructions
@@ -160,8 +162,8 @@ Customize the feedback loop command for the domain's specific:
 
 After generating files:
 
-1. Run `uv run pyright` to check types
-2. Run `uv run ruff check .` to check lint
+1. Run `uv run ruff format .` to fix formatting (never use `--check` and edit manually)
+2. Run `uv run ruff check .` and `uv run pyright` for lint and type checking
 3. Run `uv run python -m <project>.environment.cli --help` to verify CLI
 4. Verify the feedback loop command references the right scripts
 5. Check that CLAUDE.md accurately describes the domain

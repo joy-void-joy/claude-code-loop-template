@@ -33,7 +33,9 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 |--------|------|
 | Tools that provide data | Prompt rules that constrain behavior |
 | General principles | Specific pattern patches |
-| State/context via tools | F-string prompt engineering |
+| More tools and context | Step-by-step instructions in prompts |
+| `model=opus 4.6`, `max_thinking_tokens=128_000-1` | Complex prompts to compensate for weak reasoning |
+| First-principles analysis of failures | Small edits to patch one mistake |
 | Subagents for specialized work | Complex pipelines in main agent |
 
 **The test**: Would this change still help if the domain shifted completely? General principles yes, specific patches no.
@@ -41,6 +43,8 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 **Prompts rot; tools don't.** Listing tools in the prompt creates two sources of truth that drift apart as tools change. The agent discovers tools through their descriptions, so putting tool knowledge in the description (not the prompt) keeps it accurate.
 
 **The description is the contract.** When the agent misuses a tool or ignores one it should use, the description is usually the problem. A good description answers what the tool does, when to reach for it, and why it exists — so the agent can match its situation to the tool without prompt-level instructions.
+
+**When analyzing failures**: Ask "what general principle would have prevented this?" — not "what specific rule would catch this case?" General guidelines and workflows in prompts are fine. What to avoid is rigid prescriptive steps the agent must follow mechanically, and absolute thresholds that hard-code heuristics.
 
 **Clarification**: The bitter lesson does NOT mean never modifying prompts. It's fine to add:
 - General guidance for categories of tasks
@@ -50,6 +54,8 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 What to AVOID:
 - Specific numeric patches ("always subtract 10% from initial estimate")
 - Rules that hard-code observations from specific sessions
+- Rigid prescriptive steps the agent must follow mechanically
+- Absolute thresholds ("if X happens N times, do Y")
 - Listing tools in the prompt (creates a second source of truth that drifts)
 - Terse tool descriptions (the agent can't self-select tools it doesn't understand)
 
@@ -314,11 +320,14 @@ For incremental prompt changes (when Priority 0 determined a full rewrite isn't 
 - ADD general principles that help across domains
 - REMOVE prescriptive rules that add complexity
 - PREFER "use tool X for Y" over "when pattern P, do Q"
+- COMMUNICATE goals, constraints, and the *why* — avoid rigid mechanical procedures
 
 **Do NOT add**:
 - Specific rules for specific task types (over-fitted, won't generalize)
 - Numeric adjustments ("always add 10% margin") (will become stale)
 - Patches for observed patterns (treat symptoms, not causes)
+- Rigid mechanical procedures ("Step 1: always search, Step 2: always analyze...")
+- Absolute thresholds ("if confidence < 0.7, always add disclaimer")
 - Conditional exceptions that reference specific failure modes
 
 **Track patch count.** If you add a patch this session, count how many patches have been
