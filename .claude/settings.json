@@ -1,4 +1,8 @@
 {
+  "fileSuggestion": {
+    "type": "command",
+    "command": ".claude/plugins/lup/scripts/file_suggest.sh"
+  },
   "permissions": {
     "allow": [
       "WebSearch",
@@ -26,9 +30,5 @@
       }
     }
   },
-  "coauthorship": false,
-  "fileSuggestion": {
-    "type": "command",
-    "command": ".claude/plugins/lup/scripts/file_suggest.sh"
-  }
+  "coauthorship": false
 }
