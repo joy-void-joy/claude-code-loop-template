@@ -38,6 +38,8 @@ def _resolve_object(path: str) -> tuple[object, str]:
 
 def _format_signature(obj: object, name: str) -> str:
     """Format the signature of a callable."""
+    if not callable(obj):
+        return name
     try:
         sig = inspect.signature(obj)
         return f"{name}{sig}"

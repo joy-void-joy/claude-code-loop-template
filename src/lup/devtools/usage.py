@@ -90,9 +90,7 @@ class DailyActivity(BaseModel):
 class DailyModelTokens(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     date: str
-    tokens_by_model: dict[str, int] = Field(
-        alias="tokensByModel", default_factory=dict
-    )
+    tokens_by_model: dict[str, int] = Field(alias="tokensByModel", default_factory=dict)
 
 
 class ModelUsageEntry(BaseModel):
@@ -132,9 +130,7 @@ class StatsCache(BaseModel):
     )
     total_sessions: int = Field(alias="totalSessions", default=0)
     total_messages: int = Field(alias="totalMessages", default=0)
-    longest_session: LongestSession | None = Field(
-        alias="longestSession", default=None
-    )
+    longest_session: LongestSession | None = Field(alias="longestSession", default=None)
     first_session_date: str = Field(alias="firstSessionDate", default="")
     hour_counts: dict[str, int] = Field(alias="hourCounts", default_factory=dict)
     total_speculation_time_saved_ms: int = Field(
@@ -356,16 +352,12 @@ def render_bucket(
     line_width = bar_width + 2
 
     you_text = f"↑ you ({utilization:.0f}%)"
-    you_pos = min(
-        int((utilization / 100) * bar_width), bar_width - len(you_text)
-    )
+    you_pos = min(int((utilization / 100) * bar_width), bar_width - len(you_text))
     out.append(_place_label(you_text, you_pos, line_width), style="dim")
     out.append("\n")
 
     pace_text = f"↑ even ({linear_pct:.0f}%)"
-    pace_pos = min(
-        int((linear_pct / 100) * bar_width), line_width - len(pace_text)
-    )
+    pace_pos = min(int((linear_pct / 100) * bar_width), line_width - len(pace_text))
     out.append(_place_label(pace_text, pace_pos, line_width), style="dim")
     out.append("\n")
 
@@ -445,9 +437,7 @@ def _render_daily_breakdown(
         weekly_budget = week_weight / (weekly_util / 100)
     else:
         weekly_budget = (
-            week_total / (weekly_util / 100)
-            if weekly_util > 0
-            else max(week_total, 1)
+            week_total / (weekly_util / 100) if weekly_util > 0 else max(week_total, 1)
         )
         daily_weights = [float(d.total_tokens) for d in daily]
 

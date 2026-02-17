@@ -9,6 +9,11 @@ import typer
 
 app = typer.Typer(no_args_is_help=True)
 
+_git = sh.Command("git").bake()
+_uv = sh.Command("uv").bake()
+_xclip = sh.Command("xclip")
+_xsel = sh.Command("xsel")
+
 PLUGIN_CACHE_DIR = Path.home() / ".claude" / "plugins" / "cache" / "local" / "lup"
 
 GITIGNORED_DATA_DIRS = ["logs"]
@@ -53,7 +58,9 @@ def worktree_cmd(
     ] = False,
     no_plugin_refresh: Annotated[
         bool,
-        typer.Option("--no-plugin-refresh", help="Skip plugin cache refresh and install"),
+        typer.Option(
+            "--no-plugin-refresh", help="Skip plugin cache refresh and install"
+        ),
     ] = False,
     base_branch: Annotated[
         str | None,
@@ -77,11 +84,9 @@ def worktree_cmd(
 
     try:
         if base_branch:
-            sh.git(
-                "worktree", "add", str(worktree_path), "-b", branch_name, base_branch
-            )
+            _git("worktree", "add", str(worktree_path), "-b", branch_name, base_branch)
         else:
-            sh.git("worktree", "add", str(worktree_path), "-b", branch_name)
+            _git("worktree", "add", str(worktree_path), "-b", branch_name)
     except sh.ErrorReturnCode as e:
         typer.echo(f"Error creating worktree: {e.stderr.decode()}")
         raise typer.Exit(1)
@@ -103,7 +108,7 @@ def worktree_cmd(
     if not no_sync:
         typer.echo("Running uv sync...")
         try:
-            sh.uv("sync", _cwd=str(worktree_path))
+            _uv("sync", _cwd=str(worktree_path))
         except sh.ErrorReturnCode as e:
             typer.echo(f"Warning: uv sync failed: {e.stderr.decode()}")
 
@@ -131,11 +136,11 @@ def worktree_cmd(
     cd_command = f"cd /; cd {worktree_path}; claude"
 
     try:
-        sh.xclip("-selection", "clipboard", _in=cd_command)
+        _xclip("-selection", "clipboard", _in=cd_command)
         typer.echo(f"Copied to clipboard: {cd_command}")
     except (sh.ErrorReturnCode, sh.CommandNotFound):
         try:
-            sh.xsel("--clipboard", "--input", _in=cd_command)
+            _xsel("--clipboard", "--input", _in=cd_command)
             typer.echo(f"Copied to clipboard: {cd_command}")
         except (sh.ErrorReturnCode, sh.CommandNotFound):
             typer.echo("Done! To switch to the new worktree:")
