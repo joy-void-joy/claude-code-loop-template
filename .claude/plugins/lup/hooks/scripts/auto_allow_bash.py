@@ -35,6 +35,9 @@ RULES: list[Allow | Deny] = [
     # Safe read-only / common commands
     Allow(pattern=r"^ls\b"),
     Allow(pattern=r"^grep\b"),
+    Allow(pattern=r"|\sxargs\b"),
+    Allow(pattern=r"^test "),
+    Allow(pattern=r"^find"),
     # Git (safe subset)
     Allow(
         pattern=r"^git (status|log|diff|show|branch|worktree|stash|remote|fetch|tag|add|commit)\b"
@@ -43,15 +46,15 @@ RULES: list[Allow | Deny] = [
     Allow(pattern=r"^uv (sync|add|remove|lock)\b"),
     Allow(pattern=r"^uv run (pyright|pytest|ruff)\b"),
     Allow(pattern=r"^uv run \S+ --help$"),
+    # lup-devtools CLI
+    Allow(pattern=r"uv run lup-devtools\b"),
     # Block all python invocations...
     Deny(
         pattern=r"(^|\b)python3?\b",
-        reason="Denied: python is only allowed for scripts in .claude/plugins/lup/scripts/ or ./tmp/."
-        " Create a script there instead.",
+        reason="Denied: use lup-devtools instead, or create a script in ./tmp/.",
     ),
-    # ...except scripts in allowed folders (overrides the deny above)
-    Allow(pattern=r"^uv run (python )?\.claude/plugins/lup/scripts/"),
-    Allow(pattern=r"^uv run (python )?\./tmp/\S+\.py\b"),
+    # ...except tmp scripts (overrides the deny above)
+    Allow(pattern=r"^uv run (python )?(\./)?tmp/\S+\.py\b"),
 ]
 
 # ---------------------------------------------------------------------------

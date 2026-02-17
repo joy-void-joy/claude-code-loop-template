@@ -27,6 +27,7 @@ from lup.lib.hooks import (
     HooksConfig,
     create_permission_hooks,
     create_post_tool_hooks,
+    create_tool_allowlist_hook,
     merge_hooks,
 )
 from lup.lib.mcp import create_sdk_mcp_server, tool
@@ -49,6 +50,7 @@ from lup.lib.scoring import (
 )
 from lup.lib.retry import with_retry
 from lup.lib.trace import (
+    TraceEntry,
     TraceLogger,
     format_block_markdown,
     normalize_content,
@@ -75,6 +77,7 @@ __all__ = [
     "HooksConfig",
     "create_permission_hooks",
     "create_post_tool_hooks",
+    "create_tool_allowlist_hook",
     "merge_hooks",
     # MCP
     "create_sdk_mcp_server",
@@ -103,6 +106,7 @@ __all__ = [
     "read_scores_for_version",
     "rebuild_scores_csv",
     # Trace
+    "TraceEntry",
     "TraceLogger",
     "format_block_markdown",
     "normalize_content",

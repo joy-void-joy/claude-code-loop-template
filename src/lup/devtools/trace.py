@@ -1,18 +1,6 @@
-#!/usr/bin/env python3
 """Analyze reasoning traces from sessions.
 
 This is a TEMPLATE script. Customize it for your domain's trace format.
-
-Traces are the detailed reasoning logs that show what the agent thought
-and did during a session. They're essential for understanding:
-- Where reasoning went wrong
-- Which tools were helpful vs. unhelpful
-- What the agent explicitly requested
-
-Customize:
-- TRACES_PATH for where your traces are stored
-- Trace loading logic for your format
-- Search patterns for your domain
 """
 
 import re
@@ -20,23 +8,14 @@ from pathlib import Path
 
 import typer
 
-app = typer.Typer(help="Analyze session traces")
+app = typer.Typer(no_args_is_help=True)
 
-# Customize this path for your domain
 TRACES_PATH = Path("./notes/traces")
 SESSIONS_PATH = Path("./notes/sessions")
 
 
-def find_trace(session_id: str) -> Path | None:
-    """Find the trace file for a session.
-
-    Customize this for your trace storage format.
-    Common patterns:
-    - notes/traces/<session_id>/trace.md
-    - notes/sessions/<session_id>/reasoning.md
-    - logs/<session_id>/*.log
-    """
-    # Try common locations
+def _find_trace(session_id: str) -> Path | None:
+    """Find the trace file for a session."""
     candidates = [
         TRACES_PATH / session_id / "trace.md",
         TRACES_PATH / f"{session_id}.md",
@@ -48,7 +27,6 @@ def find_trace(session_id: str) -> Path | None:
         if path.exists():
             return path
 
-    # Also check for any markdown file in the session directory
     session_dir = SESSIONS_PATH / session_id
     if session_dir.exists():
         md_files = list(session_dir.glob("*.md"))
@@ -58,12 +36,11 @@ def find_trace(session_id: str) -> Path | None:
     return None
 
 
-def load_trace(trace_path: Path) -> str:
+def _load_trace(trace_path: Path) -> str:
     """Load trace content from a file or directory."""
     if trace_path.is_file():
         return trace_path.read_text(encoding="utf-8")
 
-    # If it's a directory, concatenate all files
     if trace_path.is_dir():
         contents = []
         for f in sorted(trace_path.glob("*")):
@@ -80,7 +57,7 @@ def show(
     full: bool = typer.Option(False, "-f", "--full", help="Show full trace"),
 ) -> None:
     """Show trace for a session."""
-    trace_path = find_trace(session_id)
+    trace_path = _find_trace(session_id)
 
     if not trace_path:
         typer.echo(f"No trace found for session {session_id}")
@@ -90,12 +67,11 @@ def show(
     typer.echo(f"\n=== Trace for {session_id} ===")
     typer.echo(f"Path: {trace_path}\n")
 
-    content = load_trace(trace_path)
+    content = _load_trace(trace_path)
 
     if full:
         typer.echo(content)
     else:
-        # Show first 100 lines
         lines = content.split("\n")
         typer.echo("\n".join(lines[:100]))
         if len(lines) > 100:
@@ -116,8 +92,7 @@ def search(
     regex = re.compile(pattern, re.IGNORECASE)
     matches_found = 0
 
-    # Search in both locations
-    search_paths = []
+    search_paths: list[Path] = []
     if TRACES_PATH.exists():
         search_paths.extend(TRACES_PATH.rglob("*.md"))
     if SESSIONS_PATH.exists():
@@ -135,14 +110,13 @@ def search(
                         f"\n--- {trace_file.relative_to(Path.cwd())}:{i + 1} ---"
                     )
 
-                    # Show context
                     start = max(0, i - context)
                     end = min(len(lines), i + context + 1)
                     for j in range(start, end):
                         prefix = ">>> " if j == i else "    "
                         typer.echo(f"{prefix}{lines[j]}")
 
-        except Exception as e:
+        except OSError as e:
             typer.echo(f"Error reading {trace_file}: {e}", err=True)
 
     typer.echo(f"\n{matches_found} matches found")
@@ -167,8 +141,7 @@ def errors(
     regex = re.compile("|".join(error_patterns), re.IGNORECASE)
     errors_by_session: dict[str, list[str]] = {}
 
-    # Search both locations
-    search_paths = []
+    search_paths: list[Path] = []
     if TRACES_PATH.exists():
         search_paths.extend(TRACES_PATH.rglob("*.md"))
     if SESSIONS_PATH.exists():
@@ -178,8 +151,6 @@ def errors(
         try:
             content = trace_file.read_text(encoding="utf-8")
 
-            # Extract session ID from path
-            # Assumes structure like traces/<session_id>/... or sessions/<session_id>/...
             parts = trace_file.relative_to(Path.cwd()).parts
             session_id = parts[1] if len(parts) > 1 else trace_file.stem
 
@@ -187,11 +158,10 @@ def errors(
                 if regex.search(line):
                     if session_id not in errors_by_session:
                         errors_by_session[session_id] = []
-                    # Truncate long lines
                     error_line = line[:100] + "..." if len(line) > 100 else line
                     errors_by_session[session_id].append(error_line.strip())
 
-        except Exception:
+        except OSError:
             pass
 
     if not errors_by_session:
@@ -200,14 +170,13 @@ def errors(
 
     typer.echo(f"\n=== Sessions with Errors ({len(errors_by_session)} total) ===\n")
 
-    # Sort by number of errors
     sorted_sessions = sorted(
         errors_by_session.items(), key=lambda x: len(x[1]), reverse=True
     )
 
     for session_id, error_lines in sorted_sessions[:limit]:
         typer.echo(f"{session_id}: {len(error_lines)} errors")
-        for line in error_lines[:3]:  # Show first 3 errors per session
+        for line in error_lines[:3]:
             typer.echo(f"  - {line}")
         if len(error_lines) > 3:
             typer.echo(f"  ... and {len(error_lines) - 3} more")
@@ -219,9 +188,8 @@ def list_traces(
     limit: int = typer.Option(20, "-n", "--limit", help="Max to show"),
 ) -> None:
     """List available traces."""
-    traces = []
+    traces: list[tuple[str, str, Path]] = []
 
-    # Collect from both locations
     if TRACES_PATH.exists():
         for d in TRACES_PATH.iterdir():
             if d.is_dir():
@@ -239,7 +207,6 @@ def list_traces(
     typer.echo(f"\n=== Available Traces ({len(traces)} total) ===\n")
 
     for source, session_id, path in sorted(traces, reverse=True)[:limit]:
-        # Count files in the trace directory
         files = list(path.glob("*"))
         size = sum(f.stat().st_size for f in files if f.is_file())
         size_kb = size / 1024
@@ -249,10 +216,7 @@ def list_traces(
 
 @app.command("capabilities")
 def capabilities() -> None:
-    """Extract capability requests from traces.
-
-    Looks for phrases indicating the agent wanted tools it didn't have.
-    """
+    """Extract capability requests from traces."""
     capability_patterns = [
         r"would be useful",
         r"would have helped",
@@ -267,8 +231,7 @@ def capabilities() -> None:
     regex = re.compile("|".join(capability_patterns), re.IGNORECASE)
     requests: list[tuple[str, str]] = []
 
-    # Search both locations
-    search_paths = []
+    search_paths: list[Path] = []
     if TRACES_PATH.exists():
         search_paths.extend(TRACES_PATH.rglob("*.md"))
     if SESSIONS_PATH.exists():
@@ -282,7 +245,7 @@ def capabilities() -> None:
                 if regex.search(line):
                     requests.append((str(trace_file), line.strip()))
 
-        except Exception:
+        except OSError:
             pass
 
     if not requests:
@@ -291,11 +254,6 @@ def capabilities() -> None:
 
     typer.echo(f"\n=== Capability Requests ({len(requests)} found) ===\n")
 
-    for file_path, request in requests[:30]:
-        # Truncate for display
+    for _file_path, request in requests[:30]:
         request_short = request[:80] + "..." if len(request) > 80 else request
         typer.echo(f"- {request_short}")
-
-
-if __name__ == "__main__":
-    app()

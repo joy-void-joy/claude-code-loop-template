@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebSearch"
+      "WebSearch",
+      "Read(./.claude/settings.json.local*)"
     ],
     "deny": [
       "Read(./**/*.local*)"
@@ -25,5 +26,9 @@
       }
     }
   },
-  "coauthorship": false
+  "coauthorship": false,
+  "fileSuggestion": {
+    "type": "command",
+    "command": ".claude/plugins/lup/scripts/file_suggest.sh"
+  }
 }

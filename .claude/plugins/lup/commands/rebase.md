@@ -1,95 +1,146 @@
 ---
 allowed-tools: Bash, Read, Glob, Grep, AskUserQuestion
-description: Create a clean rebase with atomic commits and open a PR
+argument-hint: [base-branch]
+description: Clean up commit history on the feature branch and open/update a PR
 ---
 
 # Rebase and PR
 
-Clean up commit history into meaningful atomic commits and create a pull request.
+Clean up the commit history on the current feature branch, push it, and open (or update) a PR.
 
-## Your Task
+## Determine Base Branch
 
-1. Analyze the current branch's commits
-2. Propose a clean commit structure
-3. Create a rebase plan
-4. Execute the rebase
-5. Open a PR
+If a base branch was provided as an argument, use it. Otherwise, auto-detect the branch this was forked from:
 
-## Phase 1: Analyze Current State
-
-Run in parallel:
-1. `git log --oneline main..HEAD` - Commits to rebase
-2. `git diff main..HEAD --stat` - Files changed
-3. `git log main..HEAD --format="%s%n%b%n---"` - Full commit messages
-
-## Phase 2: Propose Structure
-
-Based on the changes, propose a clean commit structure:
-
-- **Group related changes**: Module + tests together
-- **Logical order**: Base changes before dependent changes
-- **Meaningful messages**: Each commit tells a story
-- **Atomic commits**: Each could be reverted independently
-
-Use AskUserQuestion to propose the structure:
-
-```
-I found N commits that could be reorganized into:
-
-1. feat(scope): description
-   - file1.py
-   - file2.py
-
-2. test(scope): add tests for feature
-   - test_file.py
-
-3. docs(scope): update documentation
-   - README.md
-
-Does this structure look good?
-```
-
-## Phase 3: Execute Rebase
-
-**WARNING**: Rebasing rewrites history. Confirm with user before proceeding.
-
-### Option A: Simple squash
-If all commits should become one:
 ```bash
-git reset --soft main
-git commit -m "message"
+# Get the current branch name
+current=$(git rev-parse --abbrev-ref HEAD)
+
+# Find the nearest ancestor branch by checking merge-base distance against all local branches
+# Exclude the current branch and HEAD
+for branch in $(git for-each-ref --format='%(refname:short)' refs/heads/ | grep -v "^${current}$"); do
+  merge_base=$(git merge-base "$branch" HEAD 2>/dev/null) || continue
+  # Count commits between merge-base and HEAD (fewer = closer fork point)
+  distance=$(git rev-list --count "$merge_base"..HEAD)
+  echo "$distance $branch"
+done | sort -n | head -1
+# Use the branch with the smallest distance (most recent fork point)
 ```
 
-### Option B: Interactive reorganization
-For complex restructuring, guide the user through:
-1. `git rebase -i main`
-2. Reorder/squash/edit as needed
-3. Resolve any conflicts
+Pick the branch with the fewest commits since divergence. If auto-detection fails (no local branches share history), fall back to `AskUserQuestion`.
 
-### Option C: Fresh commits
-If history is too messy:
-1. `git diff main > changes.patch`
-2. `git checkout main`
-3. `git checkout -b clean-branch`
-4. Apply changes in logical groups
+Store the result as `<base>` — all references below use this value.
 
-## Phase 4: Push and PR
+**Scope:** Only rebase changes since the branch diverged from `<base>`. Do not touch commits that already exist on `<base>`.
 
-1. Force push to remote (with confirmation):
+## Pre-rebase Validation
+
+Before starting the rebase, ensure the branch is clean and passing all checks.
+
+1. **Merge local settings into shared config**:
+   Check if `.claude/settings.local.json` exists. If it does, review it and merge all sensible settings into `.claude/settings.json` — including permissions (allow/deny/ask rules), auto-accept patterns, and any other configuration that would benefit all contributors. Skip anything user-specific (e.g., personal paths, tokens). Commit the settings update as a separate commit.
+
+2. **Merge `<base>` into feature branch**:
    ```bash
-   git push -u origin HEAD --force-with-lease
+   # Update local <base> and merge into feature branch
+   cd ../<base>
+   git pull
+   git push
+   cd -
+   git merge <base>
+   ```
+   Resolve any merge conflicts before proceeding. This ensures the branch is up-to-date.
+
+3. **Run all checks**:
+   ```bash
+   uv run pyright
+   uv run ruff check .
+   uv run ruff format --check .
+   uv run pytest
+   ```
+   Fix any issues found. The rebased branch should only contain passing code.
+
+4. **Read PLAN.md** (if it exists):
+   Check if the branch has a PLAN.md. If it does, read it and verify:
+   - All planned items are either completed (`[x]`) or explicitly deferred
+   - No items are marked in-progress (`[~]`)
+   - The plan reflects what was actually built
+
+   If there are incomplete items, use AskUserQuestion to confirm whether to proceed or address them first.
+
+## Process
+
+1. **Sync `<base>` with remote**:
+   ```bash
+   cd ../<base>
+   git pull
+   git push
+   cd -
+   ```
+   Ensure local `<base>` is up-to-date before rebasing.
+
+2. **Push and open PR** (if not already open):
+
+   Push the feature branch:
+   ```bash
+   git push -u origin <branch>
    ```
 
-2. Create PR:
+   Check if a PR already exists:
    ```bash
-   gh pr create --title "title" --body "$(cat <<'EOF'
+   gh pr list --head "<branch>" --state open --json number,url
+   ```
+
+   **If no PR exists** (first run):
+   ```bash
+   gh pr create --title "<conventional commit style title>" --body "$(cat <<'EOF'
    ## Summary
-   - Bullet points
+   <1-3 bullet points describing the changes>
+   EOF
+   )"
+   ```
+
+   **If a PR already exists**, skip this step — we'll force-push the cleaned history later.
+
+3. **Gather context**:
+   - Identify the current branch and confirm `<base>`
+   - Review the full diff from base to HEAD: `git diff <base>...HEAD`
+   - List existing commits: `git log --oneline <base>..HEAD`
+
+4. **Understand all changes**:
+   - Read the changed files to understand the complete set of modifications
+   - Think about what logical units of work exist (features, refactors, fixes, tests, docs)
+   - **Ignore the existing commit history** — focus on what makes sense as a clean sequence
+
+5. **Reset and rebuild commits**:
+
+   Reset all commits back to staged changes:
+   ```bash
+   git reset --soft <base>
+   ```
+
+   Now all changes are staged. For each logical unit of work:
+   - Selectively unstage with `git reset HEAD <files>`, then stage and commit the relevant pieces
+   - Or use `git commit` with specific files to build atomic commits
+   - Order commits logically (dependencies first, then features, then polish)
+   - Use conventional commit format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
+
+6. **Force push to update the PR**:
+   ```bash
+   git push --force
+   ```
+
+   Return the PR URL to the user when done. Include a commit list in the PR body:
+   ```bash
+   gh pr edit <PR_NUMBER> --body "$(cat <<'EOF'
+   ## Summary
+   <1-3 bullet points describing the changes>
+
+   ## Commits
+   <list of commits in the rebased branch>
 
    ## Test plan
-   - [ ] How to test
-
-   🤖 Generated with Claude Code
+   - [ ] How to verify this works
    EOF
    )"
    ```
@@ -98,21 +149,6 @@ If history is too messy:
 
 - **Never rebase main/master**
 - **Confirm before force push**
-- **Use --force-with-lease** not --force
+- **Use --force** (not --force-with-lease) — after `git reset --soft`, the local ref diverges from remote in a way that --force-with-lease rejects. Plain --force is correct since this command intentionally rewrites history.
 - **Keep meaningful history**: Don't squash everything into one commit
 - **Write good messages**: Future you will thank present you
-
-## PR Template
-
-```markdown
-## Summary
-<1-3 bullet points describing the change>
-
-## Changes
-- List of specific changes
-
-## Test plan
-- [ ] How to verify this works
-
-🤖 Generated with Claude Code
-```

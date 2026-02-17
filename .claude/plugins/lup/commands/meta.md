@@ -17,7 +17,7 @@ Based on the user's input above, explore the relevant parts of `.claude/` and br
 
 - `CLAUDE.md` - Project instructions and documentation
 - `settings.json` - Permissions and plugin configuration
-- `plugins/lup/` - Self-improvement loop plugin with commands, scripts, and agents
+- `plugins/lup/` - Self-improvement loop plugin with commands, hooks, and agents
 
 Read the relevant files based on what the user is asking about, then use AskUserQuestion to propose specific changes or additions.
 
@@ -30,25 +30,27 @@ plugins/lup/
 │   ├── init.md                  # Domain initialization wizard
 │   ├── feedback-loop.md         # 3-level meta analysis
 │   └── meta.md                  # This file
-├── scripts/                     # Python CLI tools
-│   ├── claude/                   # Claude (meta-agent) internal tooling
-│   │   ├── inspect_api.py       # Explore Python package APIs
-│   │   ├── module_info.py       # Get module paths and source
-│   │   ├── commit_results.py    # Commit session outputs
-│   │   └── downstream_sync.py   # Track upstream template changes
-│   ├── loop/                    # Feedback loop scripts (templates)
-│   │   ├── feedback_collect.py  # Session feedback collection
-│   │   ├── trace_analysis.py    # Reasoning trace inspection
-│   │   └── aggregate_metrics.py # Cross-session metrics
-│   └── new_worktree.py          # Create git worktrees (user-facing)
-└── agents/                      # Subagent definitions (if needed)
+├── hooks/                       # PreToolUse permission hooks
+│   ├── hooks.json               # Hook definitions
+│   └── scripts/                 # Hook implementations
+│       ├── auto_allow_bash.py   # Bash command auto-allow/deny
+│       ├── auto_allow_edits.py  # Edit auto-allow (trivial changes)
+│       ├── auto_allow_fetch.py  # WebFetch URL allow/deny
+│       ├── pre_push_check.py    # Quality gates before push
+│       ├── check_plan_md.py     # PLAN.md check on feature branches
+│       └── protect_tests.py     # TDD test protection
+├── agents/                      # Subagent definitions
+└── TEMPLATE_CLAUDE.md           # CLAUDE.md template for new projects
 ```
+
+**Note:** Python CLI tooling (API inspection, trace analysis, feedback collection, worktree management, etc.) lives in `src/lup/devtools/` and is exposed as the `lup-devtools` CLI entry point. See the lup-devtools section in CLAUDE.md.
 
 ### When to Add to the Plugin
 
 - **Commands**: Reusable workflows invoked via `/lup:command-name`
-- **Scripts**: Python CLI tools. Agent-internal scripts go in `scripts/claude/`, user-facing scripts go in `scripts/`
+- **Hooks**: Permission hooks in `hooks/scripts/` — auto-allow, deny, or quality gates
 - **Agents**: Subagent definitions for specialized tasks
+- **Devtools**: Python CLI tools go in `src/lup/devtools/` (exposed as `lup-devtools`), not in the plugin
 
 ## Brainstorming Principles
 

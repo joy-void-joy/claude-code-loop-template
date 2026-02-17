@@ -213,3 +213,4 @@ worktrees/
 tmp/
 downstream.json.local
 .cache/
+refs/

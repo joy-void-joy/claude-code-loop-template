@@ -1,31 +1,24 @@
-#!/usr/bin/env python3
 """Aggregate metrics across all sessions.
 
 This is a TEMPLATE script. Customize it for your domain's metrics.
-
-Summarizes:
-- Tool usage across sessions
-- Costs and token counts
-- Error rates
-- Domain-specific metrics (customize in compute_domain_metrics)
 """
 
 import json
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import typer
 
-app = typer.Typer(help="Aggregate metrics across sessions")
+app = typer.Typer(no_args_is_help=True)
 
-# Customize these paths
 SESSIONS_PATH = Path("./notes/sessions")
 FEEDBACK_PATH = Path("./notes/feedback_loop")
 
 
-def load_all_sessions() -> list[dict]:
+def _load_all_sessions() -> list[dict[str, Any]]:
     """Load all session files."""
-    sessions = []
+    sessions: list[dict[str, Any]] = []
     if not SESSIONS_PATH.exists():
         return sessions
 
@@ -34,11 +27,11 @@ def load_all_sessions() -> list[dict]:
             continue
         for session_file in session_dir.glob("*.json"):
             try:
-                data = json.loads(session_file.read_text())
+                data: dict[str, Any] = json.loads(session_file.read_text())
                 data["_file"] = str(session_file)
                 data["_session_id"] = session_dir.name
                 sessions.append(data)
-            except Exception:
+            except (json.JSONDecodeError, OSError):
                 continue
     return sessions
 
@@ -46,13 +39,12 @@ def load_all_sessions() -> list[dict]:
 @app.command("summary")
 def summary() -> None:
     """Show aggregate summary of all sessions."""
-    sessions = load_all_sessions()
+    sessions = _load_all_sessions()
     if not sessions:
         typer.echo("No sessions found")
         typer.echo(f"Checked: {SESSIONS_PATH}")
         raise typer.Exit(1)
 
-    # Basic counts
     total = len(sessions)
     with_metrics = sum(1 for s in sessions if s.get("tool_metrics"))
     with_tokens = sum(1 for s in sessions if s.get("token_usage"))
@@ -63,7 +55,6 @@ def summary() -> None:
     typer.echo(f"With tokens:  {with_tokens} ({100 * with_tokens / total:.0f}%)")
     typer.echo(f"With outcome: {with_outcome} ({100 * with_outcome / total:.0f}%)")
 
-    # Aggregate costs
     total_cost = 0.0
     for s in sessions:
         cost = s.get("cost_usd") or s.get("tool_metrics", {}).get("total_cost_usd", 0)
@@ -74,7 +65,6 @@ def summary() -> None:
         typer.echo(f"\nTotal cost: ${total_cost:.2f}")
         typer.echo(f"Avg cost/session: ${total_cost / total:.4f}")
 
-    # Aggregate tokens
     total_input = 0
     total_output = 0
     for s in sessions:
@@ -89,19 +79,15 @@ def summary() -> None:
         typer.echo(f"  Output: {total_output:,}")
         typer.echo(f"  Total:  {total_input + total_output:,}")
 
-    # TODO: Add domain-specific metrics
-    # compute_domain_metrics(sessions)
-
 
 @app.command("tools")
 def tools() -> None:
     """Show tool usage aggregates."""
-    sessions = load_all_sessions()
+    sessions = _load_all_sessions()
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
 
-    # Aggregate by tool
     tool_stats: dict[str, dict[str, int | float]] = defaultdict(
         lambda: {"calls": 0, "errors": 0, "total_ms": 0}
     )
@@ -127,12 +113,12 @@ def tools() -> None:
     for tool_name in sorted(tool_stats.keys(), key=lambda t: -tool_stats[t]["calls"]):
         stats = tool_stats[tool_name]
         calls = int(stats["calls"])
-        errors = int(stats["errors"])
-        err_pct = (100 * errors / calls) if calls > 0 else 0
+        errs = int(stats["errors"])
+        err_pct = (100 * errs / calls) if calls > 0 else 0
         avg_ms = stats["total_ms"] / calls if calls > 0 else 0
         err_indicator = " !" if err_pct > 10 else ""
         typer.echo(
-            f"{tool_name:<35} {calls:>8} {errors:>8} {err_pct:>7.1f}%{err_indicator} {avg_ms:>9.0f}"
+            f"{tool_name:<35} {calls:>8} {errs:>8} {err_pct:>7.1f}%{err_indicator} {avg_ms:>9.0f}"
         )
 
 
@@ -141,13 +127,12 @@ def errors(
     limit: int = typer.Option(20, "-n", "--limit", help="Max sessions to show"),
 ) -> None:
     """Show sessions with high error rates."""
-    sessions = load_all_sessions()
+    sessions = _load_all_sessions()
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
 
-    # Find sessions with errors
-    with_errors = []
+    with_errors: list[dict[str, Any]] = []
     for s in sessions:
         metrics = s.get("tool_metrics", {})
         total_errors = metrics.get("total_errors", 0)
@@ -181,12 +166,11 @@ def trends(
     window: int = typer.Option(10, "-w", "--window", help="Rolling window size"),
 ) -> None:
     """Show metric trends over time."""
-    sessions = load_all_sessions()
+    sessions = _load_all_sessions()
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
 
-    # Sort by timestamp
     sessions_with_ts = [s for s in sessions if s.get("timestamp")]
     sessions_with_ts.sort(key=lambda x: x["timestamp"])
 
@@ -197,28 +181,22 @@ def trends(
 
     typer.echo(f"\n=== Trends (rolling {window}-session window) ===\n")
 
-    # Compute rolling metrics
     for i in range(window - 1, len(sessions_with_ts)):
         window_sessions = sessions_with_ts[i - window + 1 : i + 1]
 
-        # Tool call count
         total_calls = sum(
             s.get("tool_metrics", {}).get("total_tool_calls", 0)
             for s in window_sessions
         )
         avg_calls = total_calls / window
 
-        # Error rate
         total_errors = sum(
             s.get("tool_metrics", {}).get("total_errors", 0) for s in window_sessions
         )
         error_rate = total_errors / max(1, total_calls)
 
-        # Cost
         total_cost = sum(s.get("cost_usd", 0) or 0 for s in window_sessions)
         avg_cost = total_cost / window
-
-        # TODO: Add domain-specific trending metrics
 
         latest_ts = window_sessions[-1].get("timestamp", "")[:10]
         typer.echo(
@@ -249,9 +227,5 @@ def history(
             total = data.get("total_sessions", 0)
             with_outcomes = data.get("sessions_with_outcomes", 0)
             typer.echo(f"{f.name}: {total} sessions, {with_outcomes} with outcomes")
-        except Exception:
+        except (json.JSONDecodeError, OSError):
             typer.echo(f"{f.name}: (error reading)")
-
-
-if __name__ == "__main__":
-    app()

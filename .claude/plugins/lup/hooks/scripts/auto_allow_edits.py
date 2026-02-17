@@ -5,8 +5,8 @@ Decision order:
 1. Protected files (.claude/, pyproject.toml, .env*) -> always defer
 2. Pure deletion (new_string is empty) -> allow
 3. replace_all: single-line rename -> allow, multi-line -> defer
-4. Count nontrivial added lines (using a state machine for context-aware
-   classification) -> allow if <= MAX_REAL_CHANGES
+4. Count nontrivial added lines per change block (using a state machine
+   for context-aware classification) -> allow if every block <= MAX_REAL_CHANGES
 """
 
 import difflib
@@ -29,14 +29,42 @@ def is_protected_file(file_path: str) -> bool:
     return any(re.search(p, file_path) for p in PROTECTED_PATTERNS)
 
 
+_STRING_PREFIX_RE = re.compile(r"^[fFbBrRuU]*")
+
+
+def _is_string_literal(stripped: str) -> bool:
+    """Check if a stripped line is a string literal (possibly with trailing comma)."""
+    s = stripped.rstrip(",").rstrip()
+    if len(s) < 2:
+        return False
+    bare = _STRING_PREFIX_RE.sub("", s)
+    if len(bare) < 2:
+        return False
+    for q in ('"""', "'''"):
+        if bare.startswith(q) and bare.endswith(q) and len(bare) >= 2 * len(q):
+            return True
+    for q in ('"', "'"):
+        if bare.startswith(q) and bare.endswith(q):
+            return True
+    return False
+
+
 def _is_trivial_content(stripped: str) -> bool:
     if not stripped:
         return True
+    # Non-alpha lines: ), ], }, ):, etc.
+    if not any(c.isalpha() for c in stripped):
+        return True
     if stripped.startswith("#"):
         return True
-    if stripped.startswith("import ") or stripped.startswith("from "):
+    if stripped.startswith(("import ", "from ")):
         return True
     if stripped == "pass":
+        return True
+    if _is_string_literal(stripped):
+        return True
+    # Type annotations / field definitions: name: Type, name: Type = value
+    if re.match(r"^\w+\s*:\s*\S", stripped):
         return True
     return False
 
@@ -101,6 +129,12 @@ def _classify_trivial(lines: list[str]) -> list[bool]:
 
 
 def count_real_additions(old_string: str, new_string: str) -> int:
+    """Return the max nontrivial addition count across change blocks.
+
+    Consecutive insert/replace/delete opcodes form a single block.
+    Each block is checked independently, so multiple small changes
+    scattered through the diff are each allowed up to MAX_REAL_CHANGES.
+    """
     old_lines = old_string.splitlines() if old_string else []
     new_lines = new_string.splitlines() if new_string else []
 
@@ -110,16 +144,26 @@ def count_real_additions(old_string: str, new_string: str) -> int:
         [ln.strip() for ln in new_lines],
     )
 
-    added_indices: set[int] = set()
+    trivial = _classify_trivial(new_lines)
+
+    max_nontrivial = 0
+    current_block: set[int] = set()
+
     for tag, _i1, _i2, j1, j2 in matcher.get_opcodes():
         if tag in ("insert", "replace"):
-            added_indices.update(range(j1, j2))
+            current_block.update(range(j1, j2))
+        elif tag == "equal":
+            if current_block:
+                n = sum(1 for j in current_block if not trivial[j])
+                max_nontrivial = max(max_nontrivial, n)
+                current_block = set()
+        # "delete" doesn't add indices but doesn't break the block
 
-    if not added_indices:
-        return 0
+    if current_block:
+        n = sum(1 for j in current_block if not trivial[j])
+        max_nontrivial = max(max_nontrivial, n)
 
-    trivial = _classify_trivial(new_lines)
-    return sum(1 for j in added_indices if not trivial[j])
+    return max_nontrivial
 
 
 AllowDecision = dict[str, dict[str, str]]

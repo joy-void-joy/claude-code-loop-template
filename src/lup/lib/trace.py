@@ -198,11 +198,20 @@ def format_block_markdown(block: ContentBlock) -> str:
 # ---------------------------------------------------------------------------
 
 
+class TraceEntry(BaseModel):
+    """A single indexed entry in a session trace."""
+
+    index: int = Field(description="0-based entry index")
+    timestamp: str = Field(description="ISO timestamp when entry was logged")
+    content: str = Field(description="Markdown content for this entry")
+
+
 class TraceLogger(BaseModel):
     """Accumulates agent reasoning for feedback loop analysis.
 
     Collects content blocks during agent execution and saves them
-    as a markdown trace file for later analysis.
+    as a markdown trace file for later analysis. Supports both
+    raw line access (for saving) and indexed entry access (for slicing).
     """
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -210,39 +219,55 @@ class TraceLogger(BaseModel):
     trace_path: Path = Field(description="Path to save the trace file")
     title: str = Field(description="Title for the trace")
     lines: list[str] = Field(default_factory=list)
+    entries: list[TraceEntry] = Field(default_factory=list)
 
     def model_post_init(self, _context: Any) -> None:
         """Initialize the trace with header."""
         if not self.lines:
-            self.lines.append(f"# Trace: {self.title}\n")
-            self.lines.append(f"*Generated: {datetime.now().isoformat()}*\n\n")
+            header = f"# Trace: {self.title}\n"
+            generated = f"*Generated: {datetime.now().isoformat()}*\n\n"
+            self.lines.append(header)
+            self.lines.append(generated)
+            self.entries.append(
+                TraceEntry(
+                    index=0,
+                    timestamp=datetime.now().isoformat(),
+                    content=header + generated,
+                )
+            )
+
+    def _append_entry(self, content: str) -> None:
+        """Create and append a new trace entry."""
+        self.lines.append(content)
+        self.entries.append(
+            TraceEntry(
+                index=len(self.entries),
+                timestamp=datetime.now().isoformat(),
+                content=content,
+            )
+        )
 
     def log_block(self, block: ContentBlock) -> None:
-        """Add a formatted block to the trace.
-
-        Args:
-            block: A ContentBlock from the Claude Agent SDK.
-        """
-        self.lines.append(format_block_markdown(block))
+        """Add a formatted block to the trace."""
+        self._append_entry(format_block_markdown(block))
 
     def log_text(self, text: str, heading: str | None = None) -> None:
-        """Add raw text to the trace.
-
-        Args:
-            text: Text content to add.
-            heading: Optional heading for the section.
-        """
+        """Add raw text to the trace."""
         if heading:
-            self.lines.append(f"## {heading}\n\n{text}\n")
+            self._append_entry(f"## {heading}\n\n{text}\n")
         else:
-            self.lines.append(f"{text}\n")
+            self._append_entry(f"{text}\n")
+
+    def read_entries(
+        self,
+        after_n: int | None = None,
+        before_n: int | None = None,
+    ) -> list[TraceEntry]:
+        """Slice entries by index. Supports negative indexing."""
+        return self.entries[after_n:before_n]
 
     def save(self) -> Path:
-        """Write accumulated trace to file.
-
-        Returns:
-            Path to the saved trace file.
-        """
+        """Write accumulated trace to file."""
         self.trace_path.parent.mkdir(parents=True, exist_ok=True)
         self.trace_path.write_text("\n".join(self.lines), encoding="utf-8")
         logger.info("Saved trace to %s", self.trace_path)

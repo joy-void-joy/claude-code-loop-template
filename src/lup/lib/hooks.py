@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 from claude_agent_sdk import HookMatcher
-from claude_agent_sdk.types import HookContext
+from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
 from lup.lib.notes import path_is_under
 
@@ -103,37 +103,37 @@ def create_permission_hooks(
         input_data: Any,
         _tool_use_id: str | None,
         _context: HookContext,
-    ) -> dict[str, Any]:
+    ) -> SyncHookJSONOutput:
         """Control tool access based on directory permissions."""
         if input_data.get("hook_event_name") != "PreToolUse":
-            return {}
+            return SyncHookJSONOutput()
 
         tool_name = input_data.get("tool_name", "")
         tool_input = input_data.get("tool_input", {})
         hook_event = input_data["hook_event_name"]
 
-        def deny(reason: str) -> dict[str, Any]:
-            return {
-                "hookSpecificOutput": {
+        def deny(reason: str) -> SyncHookJSONOutput:
+            return SyncHookJSONOutput(
+                hookSpecificOutput={
                     "hookEventName": hook_event,
                     "permissionDecision": "deny",
                     "permissionDecisionReason": reason,
                 }
-            }
+            )
 
-        def allow() -> dict[str, Any]:
-            return {
-                "hookSpecificOutput": {
+        def allow() -> SyncHookJSONOutput:
+            return SyncHookJSONOutput(
+                hookSpecificOutput={
                     "hookEventName": hook_event,
                     "permissionDecision": "allow",
                 }
-            }
+            )
 
         # Write: allow in RW directories only
         if tool_name == "Write":
             file_path = tool_input.get("file_path", "")
             if not file_path:
-                return {}  # Let SDK handle missing required param
+                return SyncHookJSONOutput()  # Let SDK handle missing required param
             if path_is_under(file_path, rw_dirs):
                 return allow()
             return deny(f"Write denied. Allowed: {[str(d) for d in rw_dirs]}")
@@ -142,7 +142,7 @@ def create_permission_hooks(
         if tool_name == "Edit":
             file_path = tool_input.get("file_path", "")
             if not file_path:
-                return {}
+                return SyncHookJSONOutput()
             if path_is_under(file_path, rw_dirs):
                 return allow()
             return deny(f"Edit denied. Allowed: {[str(d) for d in rw_dirs]}")
@@ -151,7 +151,7 @@ def create_permission_hooks(
         if tool_name == "Read":
             file_path = tool_input.get("file_path", "")
             if not file_path:
-                return {}
+                return SyncHookJSONOutput()
             if path_is_under(file_path, all_readable):
                 return allow()
             return deny(f"Read denied. Allowed: {[str(d) for d in all_readable]}")
@@ -174,7 +174,7 @@ def create_permission_hooks(
         return allow()
 
     return {
-        "PreToolUse": [HookMatcher(hooks=[permission_hook])],  # type: ignore[list-item]
+        "PreToolUse": [HookMatcher(hooks=[permission_hook])],
     }
 
 
@@ -199,10 +199,10 @@ def create_post_tool_hooks() -> HooksConfig:
         input_data: Any,
         _tool_use_id: str | None,
         _context: HookContext,
-    ) -> dict[str, Any]:
+    ) -> SyncHookJSONOutput:
         """Example post-tool hook."""
         if input_data.get("hook_event_name") != "PostToolUse":
-            return {}
+            return SyncHookJSONOutput()
 
         tool_name = input_data.get("tool_name", "")
         tool_response = input_data.get("tool_response", {})
@@ -217,16 +217,56 @@ def create_post_tool_hooks() -> HooksConfig:
 
             # Check for signs of JS-rendered garbage
             if len(content) < 100 and "loading" in content.lower():
-                return {
-                    "systemMessage": (
+                return SyncHookJSONOutput(
+                    systemMessage=(
                         "The WebFetch response appears to be a JS-rendered page "
                         "that didn't load properly. Consider using a different "
                         "tool or URL."
                     )
-                }
+                )
 
-        return {}
+        return SyncHookJSONOutput()
 
     return {
-        "PostToolUse": [HookMatcher(hooks=[example_post_hook])],  # type: ignore[list-item]
+        "PostToolUse": [HookMatcher(hooks=[example_post_hook])],
+    }
+
+
+def create_tool_allowlist_hook(
+    allowed_tools: list[str],
+) -> HooksConfig:
+    """Create a PreToolUse hook that restricts the agent to only allowed tools.
+
+    Use this instead of allowed_tools in ClaudeAgentOptions, which is
+    ignored when permission_mode="bypassPermissions".
+    """
+
+    allowed = frozenset(allowed_tools)
+
+    async def allowlist_hook(
+        input_data: Any,
+        _tool_use_id: str | None,
+        _context: HookContext,
+    ) -> SyncHookJSONOutput:
+        if input_data.get("hook_event_name") != "PreToolUse":
+            return SyncHookJSONOutput()
+
+        tool_name = input_data.get("tool_name", "")
+        if tool_name in allowed:
+            return SyncHookJSONOutput(
+                hookSpecificOutput={
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                }
+            )
+        return SyncHookJSONOutput(
+            hookSpecificOutput={
+                "hookEventName": "PreToolUse",
+                "permissionDecision": "deny",
+                "permissionDecisionReason": f"Tool '{tool_name}' not in allowed list.",
+            }
+        )
+
+    return {
+        "PreToolUse": [HookMatcher(hooks=[allowlist_hook])],
     }

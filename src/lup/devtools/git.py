@@ -1,8 +1,4 @@
-"""Commit uncommitted session result files to git.
-
-Finds all modified/untracked files under notes/sessions/ and notes/traces/,
-groups them by session ID, and creates one commit per session.
-"""
+"""Git operations for session data."""
 
 import json
 from pathlib import Path
@@ -10,7 +6,7 @@ from pathlib import Path
 import sh
 import typer
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 SESSIONS_PATH = Path("./notes/sessions")
 TRACES_PATH = Path("./notes/traces")
@@ -30,7 +26,6 @@ def _get_uncommitted_session_ids() -> set[str]:
         file_path = line[3:].split(" -> ")[0].strip()
         parts = Path(file_path).parts
 
-        # notes/sessions/<session_id>/... or notes/traces/<session_id>/...
         if (
             len(parts) >= 3
             and parts[0] == "notes"
@@ -90,7 +85,6 @@ def _commit_session(session_id: str, *, dry_run: bool = False) -> bool:
         except sh.ErrorReturnCode:
             pass
 
-    # Also stage scores.csv if it has changes
     if SCORES_CSV.exists():
         try:
             git.add(str(SCORES_CSV))
@@ -108,8 +102,8 @@ def _commit_session(session_id: str, *, dry_run: bool = False) -> bool:
     return True
 
 
-@app.command()
-def main(
+@app.command("commit-results")
+def commit_results(
     dry_run: bool = typer.Option(
         False, "--dry-run", "-n", help="Show what would be committed"
     ),
@@ -135,7 +129,3 @@ def main(
         print(f"\nWould commit {committed} session(s)")
     else:
         print(f"\nCommitted {committed} session(s)")
-
-
-if __name__ == "__main__":
-    app()
