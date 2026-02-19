@@ -16,14 +16,11 @@ from pathlib import Path
 from typing import cast
 
 from claude_agent_sdk import (
-    AssistantMessage,
     ClaudeAgentOptions,
     ClaudeSDKClient,
-    ResultMessage,
-    SystemMessage,
+    ContentBlock,
     TextBlock,
     ToolUseBlock,
-    UserMessage,
 )
 
 from claude_agent_sdk.types import McpSdkServerConfig
@@ -38,6 +35,7 @@ from lup.version import AGENT_VERSION
 from lup.lib import (
     HooksConfig,
     NotesConfig,
+    ResponseCollector,
     Sandbox,
     TraceLogger,
     append_score_row,
@@ -46,7 +44,6 @@ from lup.lib import (
     extract_sdk_tools,
     get_metrics_summary,
     log_metrics_summary,
-    print_block,
     reset_metrics,
     save_session,
     setup_notes,
@@ -152,42 +149,14 @@ async def run_agent(
         timeout_seconds=settings.sandbox_timeout_seconds,
     )
 
-    collected_text: list[str] = []
-    assistant_messages: list[AssistantMessage] = []
-    result: ResultMessage | None = None
+    collector = ResponseCollector(trace_logger=trace_logger)
 
     with sandbox:
         options = _build_options(notes, sandbox_server=sandbox.create_mcp_server())
 
         async with ClaudeSDKClient(options=options) as client:
             await client.query(task)
-
-            async for message in client.receive_response():
-                match message:
-                    case AssistantMessage():
-                        assistant_messages.append(message)
-                        for block in message.content:
-                            print_block(block)
-                            trace_logger.log_block(block)
-                            if isinstance(block, TextBlock):
-                                collected_text.append(block.text)
-
-                    case ResultMessage():
-                        result = message
-                        if message.is_error:
-                            raise RuntimeError(f"Agent error: {message.result}")
-
-                    case SystemMessage():
-                        logger.info("System [%s]: %s", message.subtype, message.data)
-
-                    case UserMessage():
-                        if isinstance(message.content, list):
-                            for block in message.content:
-                                print_block(block)
-                                trace_logger.log_block(block)
-
-    if result is None:
-        raise RuntimeError("No result received from agent")
+            await collector.collect(client)
 
     trace_logger.save()
     log_metrics_summary()
@@ -195,9 +164,7 @@ async def run_agent(
     session_result = _build_result(
         session_id=session_id,
         task_id=task_id,
-        result=result,
-        collected_text=collected_text,
-        assistant_messages=assistant_messages,
+        collector=collector,
     )
 
     save_session(session_result)
@@ -210,11 +177,13 @@ def _build_result(
     *,
     session_id: str,
     task_id: str | None,
-    result: ResultMessage,
-    collected_text: list[str],
-    assistant_messages: list[AssistantMessage],
+    collector: ResponseCollector,
 ) -> SessionResult:
     """Build a SessionResult from the completed agent run."""
+    result = collector.result
+    if result is None:
+        raise RuntimeError("No result in collector")
+
     output = AgentOutput(summary="No output produced", factors=[], confidence=0.5)
     if result.structured_output:
         output = AgentOutput.model_validate(result.structured_output)
@@ -225,8 +194,10 @@ def _build_result(
         agent_version=AGENT_VERSION,
         timestamp=datetime.now().isoformat(),
         output=output,
-        reasoning="".join(collected_text),
-        sources_consulted=_extract_sources(assistant_messages),
+        reasoning="".join(
+            b.text for b in collector.blocks if isinstance(b, TextBlock)
+        ),
+        sources_consulted=_extract_sources(collector.blocks),
         duration_seconds=(result.duration_ms / 1000) if result.duration_ms else None,
         cost_usd=result.total_cost_usd,
         token_usage=cast(TokenUsage, result.usage) if result.usage else None,
@@ -234,17 +205,16 @@ def _build_result(
     )
 
 
-def _extract_sources(messages: list[AssistantMessage]) -> list[str]:
-    """Extract sources from tool use blocks."""
+def _extract_sources(blocks: list[ContentBlock]) -> list[str]:
+    """Extract source URLs/queries from tool use blocks."""
     sources: list[str] = []
-    for msg in messages:
-        for block in msg.content:
-            if isinstance(block, ToolUseBlock) and block.name in (
-                "WebSearch",
-                "WebFetch",
-            ):
-                if isinstance(block.input, dict):
-                    source = block.input.get("url") or block.input.get("query")
-                    if source:
-                        sources.append(str(source))
+    for block in blocks:
+        if isinstance(block, ToolUseBlock) and block.name in (
+            "WebSearch",
+            "WebFetch",
+        ):
+            if isinstance(block.input, dict):
+                source = block.input.get("url") or block.input.get("query")
+                if source:
+                    sources.append(str(source))
     return sources
