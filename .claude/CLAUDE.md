@@ -93,6 +93,7 @@ For agents that exist over time — maintaining conversations, monitoring system
 - **src/lup/agent/subagents.py**: Subagent definitions
 - **src/lup/agent/tool_policy.py**: Conditional tool availability
 - **src/lup/agent/tools/example.py**: Example MCP tools
+- **src/lup/agent/tools/review.py**: Forced self-review tool (runs reviewer sub-agent)
 
 **Library (reusable abstractions):**
 - **src/lup/lib/hooks.py**: Hook utilities and composition
@@ -347,7 +348,8 @@ src/
     │   ├── tool_policy.py      # Conditional tool availability
     │   └── tools/
     │       ├── example.py      # Example MCP tools (customize)
-    │       └── realtime.py     # Real-time tools template (sleep, context, reply)
+    │       ├── realtime.py     # Real-time tools template (sleep, context, reply)
+    │       └── review.py       # Forced self-review tool (reviewer sub-agent)
     ├── devtools/               # Development CLI (lup-devtools entry point)
     │   ├── main.py             # Root Typer app composing sub-apps
     │   ├── agent.py            # Agent introspection and debugging
@@ -398,14 +400,19 @@ Define tool inputs as BaseModel classes with `Field(description=...)`. This give
 | `SearchInput.model_json_schema()` for `@tool` schema | Hand-written dict schemas |
 | `SearchInput.model_validate(args)` then `params.query` | `args.get("query", "")` |
 
-### No Regex/String Parsing for Structured Data
+### No String Manipulation on Structured Data
 
-Never use regex or string substitution to parse HTML, XML, JSON, or other structured formats. Use proper parsing libraries:
+If you're reaching for `re`, `.replace()`, `.split()`, string slicing, or any string operation to extract, transform, or filter structured data, something is wrong. Operate on the structure directly.
 
-- **Web page text extraction**: Use `trafilatura` -- it handles boilerplate removal, content extraction, and metadata
-- **HTML DOM manipulation**: Use `beautifulsoup4` when you need to navigate/query the DOM tree
+- **Web pages**: Use `trafilatura` for text extraction, `beautifulsoup4` for DOM queries
 - **XML**: Use `xml.etree.ElementTree` or `lxml`
-- **JSON embedded in HTML**: Parse the HTML with BeautifulSoup first, then `json.loads()`
+- **JSON**: `json.loads()`, not regex
+- **SDK objects**: Filter `ContentBlock` lists by type and attribute (e.g. `ToolUseBlock.name`, `ToolResultBlock.tool_use_id`)
+- **Dates/timestamps**: Parse to `datetime`, don't compare strings
+- **URLs**: Use `urllib.parse`, not string splitting
+- **File paths**: Use `pathlib.Path`, not string concatenation
+
+String operations are for formatting output. If you're using them to understand or transform data, you're working at the wrong abstraction level. `import re` in particular is a code smell -- if you find yourself writing a regex, stop and look for the structured API.
 
 ### Use Standard Libraries
 
