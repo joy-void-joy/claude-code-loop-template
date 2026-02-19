@@ -96,10 +96,12 @@ For agents that exist over time — maintaining conversations, monitoring system
 
 **Library (reusable abstractions):**
 - **src/lup/lib/hooks.py**: Hook utilities and composition
+- **src/lup/lib/paths.py**: Centralized version-aware path constants and helpers
 - **src/lup/lib/trace.py**: Trace logging, output formatting, color-coded console display
 - **src/lup/lib/metrics.py**: Tool call tracking
 - **src/lup/lib/realtime.py**: Scheduler for persistent agents (sleep/wake, debounce, reminders)
 - **src/lup/lib/scoring.py**: CSV result tracking and score generation
+- **src/lup/lib/throttle.py**: Rate limiting (concurrency + interval)
 
 **Top-level:**
 - **src/lup/version.py**: Agent version tracking (bump on behavior changes)
@@ -329,10 +331,12 @@ src/
     │   ├── metrics.py          # Tool call tracking (@tracked decorator)
     │   ├── mcp.py              # MCP server creation utilities
     │   ├── notes.py            # RO/RW directory structure
+    │   ├── paths.py            # Centralized version-aware path constants and helpers
     │   ├── realtime.py         # Scheduler for persistent agents (sleep/wake, debounce)
     │   ├── responses.py        # MCP response formatting
     │   ├── retry.py            # Retry decorator with backoff
     │   ├── scoring.py          # CSV result tracking and score generation
+    │   ├── throttle.py         # Rate limiting (concurrency + interval)
     │   └── trace.py            # Trace logging, color-coded console display
     ├── agent/                  # Domain-specific code (feedback loop improves this)
     │   ├── core.py             # Main orchestration
@@ -346,6 +350,7 @@ src/
     │       └── realtime.py     # Real-time tools template (sleep, context, reply)
     ├── devtools/               # Development CLI (lup-devtools entry point)
     │   ├── main.py             # Root Typer app composing sub-apps
+    │   ├── agent.py            # Agent introspection and debugging
     │   ├── api.py              # API inspection and module info
     │   ├── dev.py              # Worktree management
     │   ├── git.py              # Session commit operations
@@ -506,6 +511,10 @@ If you find yourself running the same command repeatedly, **add a command** to `
 
 ```
 lup-devtools
+├── agent                   # Agent introspection and debugging
+│   ├── inspect             # Show tools, schemas, prompt, subagents
+│   ├── serve-tools         # Start SDK tools as MCP stdio server
+│   └── chat                # Launch interactive claude with agent config
 ├── api                     # API inspection and module info
 │   ├── inspect <path>      # Explore Python module/class/method APIs
 │   ├── module-path <mod>   # Show file path for a module
@@ -543,6 +552,16 @@ lup-devtools
 ### Examples
 
 ```bash
+# Inspect agent configuration (tools, schemas, prompt, subagents)
+uv run lup-devtools agent inspect
+uv run lup-devtools agent inspect --json
+uv run lup-devtools agent inspect --full
+
+# Interactive claude session with agent tools and prompt
+uv run lup-devtools agent chat
+uv run lup-devtools agent chat --model sonnet
+uv run lup-devtools agent chat --no-tools
+
 # Explore a Python API
 uv run lup-devtools api inspect claude_agent_sdk.Agent
 
@@ -676,8 +695,9 @@ See [The Bitter Lesson](#the-bitter-lesson) and [Tool Design Philosophy](#tool-d
 
 ### What to Track Per Session
 
-- **Outputs**: Final results saved to `notes/sessions/<session_id>/`
-- **Traces**: Reasoning logs saved to `notes/traces/<session_id>/`
+- **Sessions**: Results saved to `notes/traces/<version>/sessions/<session_id>/`
+- **Outputs**: Task outputs saved to `notes/traces/<version>/outputs/<task_id>/`
+- **Traces**: Reasoning logs saved to `notes/traces/<version>/logs/<session_id>/`
 - **Scores**: Unified CSV at `notes/scores.csv` (appended per session, includes agent version)
 - **Metrics**: Tool calls, timing, errors via metrics tracking
 
