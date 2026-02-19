@@ -5,26 +5,20 @@ This is a TEMPLATE script. Customize it for your domain's metrics.
 
 import json
 from collections import defaultdict
-from pathlib import Path
 from typing import Any
 
 import typer
 
-app = typer.Typer(no_args_is_help=True)
+from lup.lib.paths import FEEDBACK_PATH, iter_session_dirs
 
-SESSIONS_PATH = Path("./notes/sessions")
-FEEDBACK_PATH = Path("./notes/feedback_loop")
+app = typer.Typer(no_args_is_help=True)
 
 
 def _load_all_sessions() -> list[dict[str, Any]]:
-    """Load all session files."""
+    """Load all session files across all versions."""
     sessions: list[dict[str, Any]] = []
-    if not SESSIONS_PATH.exists():
-        return sessions
 
-    for session_dir in SESSIONS_PATH.iterdir():
-        if not session_dir.is_dir():
-            continue
+    for session_dir in iter_session_dirs():
         for session_file in session_dir.glob("*.json"):
             try:
                 data: dict[str, Any] = json.loads(session_file.read_text())
@@ -42,7 +36,7 @@ def summary() -> None:
     sessions = _load_all_sessions()
     if not sessions:
         typer.echo("No sessions found")
-        typer.echo(f"Checked: {SESSIONS_PATH}")
+        typer.echo("Checked all version directories under notes/traces/")
         raise typer.Exit(1)
 
     total = len(sessions)

@@ -6,15 +6,18 @@ from pathlib import Path
 import sh
 import typer
 
-app = typer.Typer(no_args_is_help=True)
+from lup.lib.paths import SCORES_CSV_PATH, TRACES_PATH, iter_session_dirs
 
-SESSIONS_PATH = Path("./notes/sessions")
-TRACES_PATH = Path("./notes/traces")
-SCORES_CSV = Path("./notes/scores.csv")
+app = typer.Typer(no_args_is_help=True)
 
 
 def _get_uncommitted_session_ids() -> set[str]:
-    """Find session IDs with uncommitted result files."""
+    """Find session IDs with uncommitted result files.
+
+    Parses git status for paths like:
+        notes/traces/<version>/sessions/<session_id>/...
+        notes/traces/<version>/logs/<session_id>/...
+    """
     git = sh.Command("git")
     session_ids: set[str] = set()
 
@@ -26,28 +29,31 @@ def _get_uncommitted_session_ids() -> set[str]:
         file_path = line[3:].split(" -> ")[0].strip()
         parts = Path(file_path).parts
 
+        # notes/traces/<version>/sessions/<session_id>/...
+        # notes/traces/<version>/logs/<session_id>/...
         if (
-            len(parts) >= 3
+            len(parts) >= 5
             and parts[0] == "notes"
-            and parts[1] in ("sessions", "traces")
+            and parts[1] == "traces"
+            and parts[3] in ("sessions", "logs")
         ):
-            session_ids.add(parts[2])
+            session_ids.add(parts[4])
 
     return session_ids
 
 
 def _get_session_summary(session_id: str) -> str:
-    """Read summary from the latest session JSON."""
-    session_dir = SESSIONS_PATH / session_id
-    if not session_dir.exists():
+    """Read summary from the latest session JSON across all versions."""
+    all_json: list[Path] = []
+    for session_dir in iter_session_dirs(session_id=session_id):
+        all_json.extend(session_dir.glob("*.json"))
+
+    if not all_json:
         return f"session {session_id}"
 
-    json_files = sorted(session_dir.glob("*.json"))
-    if not json_files:
-        return f"session {session_id}"
-
+    latest = sorted(all_json)[-1]
     try:
-        data = json.loads(json_files[-1].read_text(encoding="utf-8"))
+        data = json.loads(latest.read_text(encoding="utf-8"))
         output = data.get("output", {})
         if isinstance(output, dict):
             return output.get("summary", f"session {session_id}")[:50]
@@ -61,13 +67,18 @@ def _commit_session(session_id: str, *, dry_run: bool = False) -> bool:
     git = sh.Command("git")
     paths: list[str] = []
 
-    session_dir = SESSIONS_PATH / session_id
-    if session_dir.exists():
+    # Find session and log dirs across all versions
+    for session_dir in iter_session_dirs(session_id=session_id):
         paths.append(str(session_dir))
 
-    trace_dir = TRACES_PATH / session_id
-    if trace_dir.exists():
-        paths.append(str(trace_dir))
+    # Also check for trace log dirs under each version
+    if TRACES_PATH.exists():
+        for ver_dir in TRACES_PATH.iterdir():
+            if not ver_dir.is_dir():
+                continue
+            log_dir = ver_dir / "logs" / session_id
+            if log_dir.exists():
+                paths.append(str(log_dir))
 
     if not paths:
         return False
@@ -85,9 +96,9 @@ def _commit_session(session_id: str, *, dry_run: bool = False) -> bool:
         except sh.ErrorReturnCode:
             pass
 
-    if SCORES_CSV.exists():
+    if SCORES_CSV_PATH.exists():
         try:
-            git.add(str(SCORES_CSV))
+            git.add(str(SCORES_CSV_PATH))
         except sh.ErrorReturnCode:
             pass
 

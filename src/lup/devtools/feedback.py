@@ -18,12 +18,10 @@ from typing import Annotated, Any
 import typer
 from pydantic import BaseModel
 
+from lup.lib.paths import FEEDBACK_PATH, TRACES_PATH, iter_session_dirs
+
 app = typer.Typer(no_args_is_help=True)
 logger = logging.getLogger(__name__)
-
-SESSIONS_PATH = Path("./notes/sessions")
-FEEDBACK_PATH = Path("./notes/feedback_loop")
-TRACES_PATH = Path("./notes/traces")
 
 
 # =============================================================================
@@ -80,15 +78,10 @@ class FeedbackMetrics(BaseModel):
 
 
 def load_sessions(since: datetime | None = None) -> list[dict[str, Any]]:
-    """Load all session data."""
+    """Load all session data across all versions."""
     sessions: list[dict[str, Any]] = []
-    if not SESSIONS_PATH.exists():
-        return sessions
 
-    for session_dir in SESSIONS_PATH.iterdir():
-        if not session_dir.is_dir():
-            continue
-
+    for session_dir in iter_session_dirs():
         session_files = sorted(session_dir.glob("*.json"), reverse=True)
         if not session_files:
             continue
@@ -214,15 +207,12 @@ def check() -> None:
     """Check what data is available for feedback collection."""
     print("\n=== Feedback Data Check ===\n")
 
-    if SESSIONS_PATH.exists():
-        session_count = sum(1 for d in SESSIONS_PATH.iterdir() if d.is_dir())
-        print(f"Sessions: {session_count} in {SESSIONS_PATH}")
-    else:
-        print(f"Sessions: No directory at {SESSIONS_PATH}")
+    session_count = sum(1 for _ in iter_session_dirs())
+    print(f"Sessions: {session_count} (across all versions in {TRACES_PATH})")
 
     if TRACES_PATH.exists():
-        trace_count = sum(1 for d in TRACES_PATH.iterdir() if d.is_dir())
-        print(f"Traces: {trace_count} in {TRACES_PATH}")
+        version_count = sum(1 for d in TRACES_PATH.iterdir() if d.is_dir())
+        print(f"Versions: {version_count} in {TRACES_PATH}")
     else:
         print(f"Traces: No directory at {TRACES_PATH}")
 

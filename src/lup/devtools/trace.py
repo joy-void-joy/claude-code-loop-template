@@ -8,30 +8,23 @@ from pathlib import Path
 
 import typer
 
-app = typer.Typer(no_args_is_help=True)
+from lup.lib.paths import TRACES_PATH, iter_session_dirs, iter_trace_log_files
 
-TRACES_PATH = Path("./notes/traces")
-SESSIONS_PATH = Path("./notes/sessions")
+app = typer.Typer(no_args_is_help=True)
 
 
 def _find_trace(session_id: str) -> Path | None:
-    """Find the trace file for a session."""
-    candidates = [
-        TRACES_PATH / session_id / "trace.md",
-        TRACES_PATH / f"{session_id}.md",
-        SESSIONS_PATH / session_id / "reasoning.md",
-        Path("logs") / session_id,
-    ]
+    """Find the trace file for a session across all versions."""
+    # Check versioned trace logs
+    log_files = list(iter_trace_log_files(session_id=session_id))
+    if log_files:
+        return sorted(log_files)[-1]
 
-    for path in candidates:
-        if path.exists():
-            return path
-
-    session_dir = SESSIONS_PATH / session_id
-    if session_dir.exists():
+    # Check versioned session dirs for .md files
+    for session_dir in iter_session_dirs(session_id=session_id):
         md_files = list(session_dir.glob("*.md"))
         if md_files:
-            return md_files[0]
+            return sorted(md_files)[-1]
 
     return None
 
@@ -61,7 +54,7 @@ def show(
 
     if not trace_path:
         typer.echo(f"No trace found for session {session_id}")
-        typer.echo(f"Checked: {TRACES_PATH}, {SESSIONS_PATH}")
+        typer.echo(f"Checked: {TRACES_PATH}")
         raise typer.Exit(1)
 
     typer.echo(f"\n=== Trace for {session_id} ===")
@@ -85,18 +78,14 @@ def search(
     context: int = typer.Option(2, "-C", help="Lines of context around match"),
 ) -> None:
     """Search traces for a pattern."""
-    if not TRACES_PATH.exists() and not SESSIONS_PATH.exists():
+    if not TRACES_PATH.exists():
         typer.echo("No trace directories found")
         raise typer.Exit(1)
 
     regex = re.compile(pattern, re.IGNORECASE)
     matches_found = 0
 
-    search_paths: list[Path] = []
-    if TRACES_PATH.exists():
-        search_paths.extend(TRACES_PATH.rglob("*.md"))
-    if SESSIONS_PATH.exists():
-        search_paths.extend(SESSIONS_PATH.rglob("*.md"))
+    search_paths: list[Path] = list(TRACES_PATH.rglob("*.md"))
 
     for trace_file in search_paths:
         try:
@@ -141,11 +130,7 @@ def errors(
     regex = re.compile("|".join(error_patterns), re.IGNORECASE)
     errors_by_session: dict[str, list[str]] = {}
 
-    search_paths: list[Path] = []
-    if TRACES_PATH.exists():
-        search_paths.extend(TRACES_PATH.rglob("*.md"))
-    if SESSIONS_PATH.exists():
-        search_paths.extend(SESSIONS_PATH.rglob("*.md"))
+    search_paths: list[Path] = list(TRACES_PATH.rglob("*.md")) if TRACES_PATH.exists() else []
 
     for trace_file in search_paths:
         try:
@@ -190,23 +175,29 @@ def list_traces(
     """List available traces."""
     traces: list[tuple[str, str, Path]] = []
 
-    if TRACES_PATH.exists():
-        for d in TRACES_PATH.iterdir():
-            if d.is_dir():
-                traces.append(("traces", d.name, d))
-    if SESSIONS_PATH.exists():
-        for d in SESSIONS_PATH.iterdir():
-            if d.is_dir() and list(d.glob("*.md")):
-                traces.append(("sessions", d.name, d))
+    # Collect trace logs across all versions
+    for session_dir in iter_session_dirs():
+        traces.append(("sessions", session_dir.name, session_dir))
+
+    for log_file in iter_trace_log_files():
+        session_id = log_file.parent.name
+        traces.append(("logs", session_id, log_file.parent))
 
     if not traces:
         typer.echo("No traces found")
-        typer.echo(f"Checked: {TRACES_PATH}, {SESSIONS_PATH}")
+        typer.echo(f"Checked: {TRACES_PATH}")
         return
 
-    typer.echo(f"\n=== Available Traces ({len(traces)} total) ===\n")
+    # Deduplicate by session_id, preferring logs
+    seen: dict[str, tuple[str, str, Path]] = {}
+    for source, session_id, path in traces:
+        if session_id not in seen or source == "logs":
+            seen[session_id] = (source, session_id, path)
 
-    for source, session_id, path in sorted(traces, reverse=True)[:limit]:
+    unique = list(seen.values())
+    typer.echo(f"\n=== Available Traces ({len(unique)} total) ===\n")
+
+    for source, session_id, path in sorted(unique, reverse=True)[:limit]:
         files = list(path.glob("*"))
         size = sum(f.stat().st_size for f in files if f.is_file())
         size_kb = size / 1024
@@ -231,11 +222,7 @@ def capabilities() -> None:
     regex = re.compile("|".join(capability_patterns), re.IGNORECASE)
     requests: list[tuple[str, str]] = []
 
-    search_paths: list[Path] = []
-    if TRACES_PATH.exists():
-        search_paths.extend(TRACES_PATH.rglob("*.md"))
-    if SESSIONS_PATH.exists():
-        search_paths.extend(SESSIONS_PATH.rglob("*.md"))
+    search_paths: list[Path] = list(TRACES_PATH.rglob("*.md")) if TRACES_PATH.exists() else []
 
     for trace_file in search_paths:
         try:
