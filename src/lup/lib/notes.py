@@ -22,6 +22,8 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from lup.lib.paths import RUNTIME_LOGS_PATH, outputs_dir, sessions_dir, trace_logs_dir
+
 
 class NotesConfig(BaseModel):
     """Notes folder configuration with explicit RW/RO separation.
@@ -46,13 +48,10 @@ class NotesConfig(BaseModel):
 def setup_notes(
     session_id: str,
     task_id: str | None = None,
-    *,
-    notes_base: Path | str = "./notes",
-    logs_base: Path | str = "./logs",
 ) -> NotesConfig:
     """Create session-specific notes folder structure.
 
-    The structure separates:
+    Uses version-aware paths from lup.lib.paths. The structure separates:
     - RW directories: This session can write here
     - RO directories: Historical data, read-only for this session
     - Logs: Agent cannot access (for feedback loop analysis)
@@ -62,41 +61,31 @@ def setup_notes(
     Args:
         session_id: Unique session identifier.
         task_id: Optional task identifier (for organizing by task).
-        notes_base: Base path for notes folders.
-        logs_base: Base path for trace logs.
 
     Returns:
         NotesConfig with RW and RO directories separated.
     """
-    notes_base = Path(notes_base)
-    logs_base = Path(logs_base)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Session-specific paths (RW)
-    session_path = notes_base / "sessions" / session_id
-    output_base = notes_base / "outputs"
-    output_path = output_base / (task_id or session_id) / timestamp
-
-    # Historical/shared paths (RO for this session)
-    meta_path = notes_base / "meta"
-    structured_path = notes_base / "structured"
+    # Session-specific paths (RW) -- versioned
+    session_path = sessions_dir() / session_id
+    output_path = outputs_dir() / (task_id or session_id) / timestamp
 
     # Create directories
     session_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
-    meta_path.mkdir(parents=True, exist_ok=True)
-    logs_base.mkdir(parents=True, exist_ok=True)
+    RUNTIME_LOGS_PATH.mkdir(parents=True, exist_ok=True)
 
     # Trace log file (agent cannot access logs/)
-    trace_log = logs_base / session_id / f"{timestamp}.md"
+    trace_log = trace_logs_dir() / session_id / f"{timestamp}.md"
     trace_log.parent.mkdir(parents=True, exist_ok=True)
 
     return NotesConfig(
         session=session_path,
         output=output_path,
         trace_log=trace_log,
-        rw=[session_path, output_path, meta_path],
-        ro=[output_base, structured_path],
+        rw=[session_path, output_path],
+        ro=[outputs_dir().parent],  # Read all versioned output dirs
     )
 
 

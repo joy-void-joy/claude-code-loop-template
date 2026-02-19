@@ -11,13 +11,11 @@ and build_score_row().
 
 import csv
 import logging
-from pathlib import Path
 
 from lup.agent.models import SessionResult
+from lup.lib.paths import SCORES_CSV_PATH
 
 logger = logging.getLogger(__name__)
-
-SCORES_CSV_PATH = Path("./notes/scores.csv")
 
 CSV_COLUMNS = [
     "session_id",

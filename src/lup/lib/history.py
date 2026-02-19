@@ -1,8 +1,8 @@
 """Session history storage and retrieval.
 
 This module handles:
-1. Saving session results to notes/sessions/
-2. Loading past sessions for context or analysis
+1. Saving session results to notes/traces/<version>/sessions/
+2. Loading past sessions for context or analysis (across versions)
 3. Tracking session metadata (submitted, outcome, etc.)
 
 The feedback loop scripts read from this storage.
@@ -14,11 +14,9 @@ from datetime import datetime
 from pathlib import Path
 
 from lup.agent.models import SessionResult
+from lup.lib.paths import iter_session_dirs, sessions_dir
 
 logger = logging.getLogger(__name__)
-
-# Base path for session storage
-SESSIONS_PATH = Path("./notes/sessions")
 
 
 def save_session(result: SessionResult) -> Path:
@@ -30,7 +28,7 @@ def save_session(result: SessionResult) -> Path:
     Returns:
         Path to the saved file.
     """
-    session_dir = SESSIONS_PATH / result.session_id
+    session_dir = sessions_dir() / result.session_id
     session_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -43,7 +41,7 @@ def save_session(result: SessionResult) -> Path:
 
 
 def load_sessions(session_id: str) -> list[SessionResult]:
-    """Load all sessions for a given ID.
+    """Load all sessions for a given ID across all versions.
 
     Args:
         session_id: The session identifier.
@@ -51,19 +49,17 @@ def load_sessions(session_id: str) -> list[SessionResult]:
     Returns:
         List of SessionResult objects, sorted by timestamp (oldest first).
     """
-    session_dir = SESSIONS_PATH / session_id
+    sessions: list[SessionResult] = []
 
-    if not session_dir.exists():
-        return []
+    for session_dir in iter_session_dirs(session_id=session_id):
+        for filepath in sorted(session_dir.glob("*.json")):
+            try:
+                data = json.loads(filepath.read_text(encoding="utf-8"))
+                sessions.append(SessionResult.model_validate(data))
+            except Exception as e:
+                logger.warning("Failed to load session from %s: %s", filepath, e)
 
-    sessions = []
-    for filepath in sorted(session_dir.glob("*.json")):
-        try:
-            data = json.loads(filepath.read_text(encoding="utf-8"))
-            sessions.append(SessionResult.model_validate(data))
-        except Exception as e:
-            logger.warning("Failed to load session from %s: %s", filepath, e)
-
+    sessions.sort(key=lambda s: s.timestamp)
     return sessions
 
 
@@ -81,15 +77,14 @@ def get_latest_session(session_id: str) -> SessionResult | None:
 
 
 def list_all_sessions() -> list[str]:
-    """List all session IDs.
+    """List all session IDs across all versions.
 
     Returns:
-        List of session IDs (directory names).
+        Sorted, deduplicated list of session IDs.
     """
-    if not SESSIONS_PATH.exists():
-        return []
+    from lup.lib.paths import list_all_session_ids
 
-    return [d.name for d in SESSIONS_PATH.iterdir() if d.is_dir()]
+    return list_all_session_ids()
 
 
 def update_session_metadata(
@@ -108,17 +103,15 @@ def update_session_metadata(
     Returns:
         True if a session was updated, False if not found.
     """
-    session_dir = SESSIONS_PATH / session_id
+    # Find the latest session file across all versions
+    all_files: list[Path] = []
+    for session_dir in iter_session_dirs(session_id=session_id):
+        all_files.extend(session_dir.glob("*.json"))
 
-    if not session_dir.exists():
+    if not all_files:
         return False
 
-    # Find the latest session file
-    session_files = sorted(session_dir.glob("*.json"))
-    if not session_files:
-        return False
-
-    latest_file = session_files[-1]
+    latest_file = sorted(all_files)[-1]
 
     try:
         data = json.loads(latest_file.read_text(encoding="utf-8"))
