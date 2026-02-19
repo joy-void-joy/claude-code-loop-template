@@ -31,7 +31,7 @@ from lup.lib.hooks import (
     create_tool_allowlist_hook,
     merge_hooks,
 )
-from lup.lib.mcp import create_sdk_mcp_server, tool
+from lup.lib.mcp import LupMcpTool, create_sdk_mcp_server, extract_sdk_tools, lup_tool, tool
 from lup.lib.metrics import (
     MetricsCollector,
     ToolMetrics,
@@ -97,7 +97,10 @@ __all__ = [
     "create_tool_allowlist_hook",
     "merge_hooks",
     # MCP
+    "LupMcpTool",
     "create_sdk_mcp_server",
+    "extract_sdk_tools",
+    "lup_tool",
     "tool",
     # Metrics
     "MetricsCollector",

@@ -28,13 +28,14 @@ Tool naming convention:
 """
 
 import logging
-from typing import Any, cast
+from collections.abc import Awaitable, Callable
+from typing import Any, TypedDict, cast
 
 from claude_agent_sdk import SdkMcpTool, create_sdk_mcp_server, tool
 from claude_agent_sdk.types import McpSdkServerConfig
 from mcp.server import Server
 from mcp.types import CallToolResult, ContentBlock, ImageContent, TextContent, Tool
-from pydantic import TypeAdapter
+from pydantic import BaseModel, TypeAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -168,4 +169,84 @@ def create_mcp_server(
     return McpSdkServerConfig(type="sdk", name=name, instance=server)
 
 
-__all__ = ["create_mcp_server", "create_sdk_mcp_server", "tool"]
+class _LupMcpToolRequired(TypedDict):
+    """Required fields for LupMcpTool."""
+
+    sdk_tool: SdkMcpTool[Any]
+    input_model: type[BaseModel]
+
+
+class LupMcpTool(_LupMcpToolRequired, total=False):
+    """MCP tool with typed input/output models for introspection.
+
+    Wraps ``SdkMcpTool`` and preserves the original BaseModel classes so that
+    devtools (``lup-devtools agent inspect``) can display full JSON Schemas
+    for both input and output.
+    """
+
+    output_model: type[BaseModel]
+    tags: list[str]
+
+
+def lup_tool(
+    name: str,
+    description: str,
+    input_model: type[BaseModel],
+    output_model: type[BaseModel] | None = None,
+) -> Callable[
+    [Callable[[Any], Awaitable[dict[str, Any]]]],
+    LupMcpTool,
+]:
+    """Decorator for defining MCP tools with typed input/output models.
+
+    Like the SDK's ``@tool`` but accepts BaseModel classes directly and
+    stores them for introspection. The input schema is generated via
+    ``model_json_schema()`` automatically.
+
+    Args:
+        name: Unique tool identifier (becomes ``mcp__{server}__{name}``).
+        description: What/when/why — the agent's only documentation for this tool.
+        input_model: Pydantic BaseModel class defining the tool's input.
+        output_model: Optional Pydantic BaseModel class defining the tool's output.
+
+    Returns:
+        A decorator that wraps the async handler into a ``LupMcpTool``.
+    """
+
+    def decorator(
+        handler: Callable[[Any], Awaitable[dict[str, Any]]],
+    ) -> LupMcpTool:
+        sdk = SdkMcpTool(
+            name=name,
+            description=description,
+            input_schema=input_model.model_json_schema(),
+            handler=handler,
+        )
+        result: LupMcpTool = {
+            "sdk_tool": sdk,
+            "input_model": input_model,
+        }
+        if output_model is not None:
+            result["output_model"] = output_model
+        return result
+
+    return decorator
+
+
+def extract_sdk_tools(tools: list[LupMcpTool]) -> list[SdkMcpTool[Any]]:
+    """Extract SdkMcpTool instances from a list of LupMcpTools.
+
+    Use this when passing tools to ``create_mcp_server`` or
+    ``create_sdk_mcp_server``, which expect ``list[SdkMcpTool]``.
+    """
+    return [t["sdk_tool"] for t in tools]
+
+
+__all__ = [
+    "LupMcpTool",
+    "create_mcp_server",
+    "create_sdk_mcp_server",
+    "extract_sdk_tools",
+    "lup_tool",
+    "tool",
+]
