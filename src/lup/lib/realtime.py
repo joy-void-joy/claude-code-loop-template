@@ -25,13 +25,13 @@ implementations that wrap this scheduler.
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable, cast
+from collections.abc import Awaitable, Callable
+from typing import TypedDict, cast
 
-from pydantic import BaseModel, Field
-
-from lup.lib.reflect import ReflectionGate
+from pydantic import BaseModel, ConfigDict, Field
 
 from lup.lib.hooks import HooksConfig
+from lup.lib.reflect import ReflectionGate
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +96,41 @@ class ScheduleActionInput(BaseModel):
 
 
 # =====================================================================
+# Result types
+# =====================================================================
+
+
+class SleepResult(TypedDict, total=False):
+    """Result returned by Scheduler.sleep()."""
+
+    reason: str
+    fired_reminders: list[str]
+    time: str
+
+
+class ScheduledActionState(TypedDict):
+    """State for a pending scheduled action."""
+
+    content: str | None
+    remaining_seconds: int
+
+
+class ReminderState(TypedDict):
+    """State for a pending reminder."""
+
+    label: str
+    remaining_seconds: int
+
+
+class SchedulerState(TypedDict, total=False):
+    """Full scheduling state returned by get_state()."""
+
+    scheduled_action: ScheduledActionState
+    pending_reminders: list[ReminderState]
+    debounce_active: bool
+
+
+# =====================================================================
 # Scheduler
 # =====================================================================
 
@@ -103,12 +138,11 @@ class ScheduleActionInput(BaseModel):
 class _PendingReminder(BaseModel):
     """A scheduled self-prompt."""
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     task: asyncio.Task[None]
     label: str
     fire_at: float = Field(description="loop.time() when reminder fires")
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class Scheduler:
@@ -170,7 +204,7 @@ class Scheduler:
         self._wake_reason = reason
         self._wake.set()
 
-    async def sleep(self, seconds: int) -> dict[str, Any]:
+    async def sleep(self, seconds: int) -> SleepResult:
         """Block until timer expires or a wake event fires.
 
         Debounce persists across sleep cycles — if active, events
@@ -193,11 +227,9 @@ class Scheduler:
         self._wake.clear()
         return self._build_sleep_result()
 
-    def _build_sleep_result(self) -> dict[str, Any]:
+    def _build_sleep_result(self) -> SleepResult:
         """Build the minimal wake result."""
-        result: dict[str, Any] = {
-            "reason": self._wake_reason or "timer",
-        }
+        result = SleepResult(reason=self._wake_reason or "timer")
         if self._fired_reminder_labels:
             result["fired_reminders"] = list(self._fired_reminder_labels)
             self._fired_reminder_labels.clear()
@@ -379,32 +411,30 @@ class Scheduler:
     # State for context tool
     # ------------------------------------------------------------------
 
-    def get_state(self) -> dict[str, Any]:
+    def get_state(self) -> SchedulerState:
         """Return scheduling state for the context tool."""
         loop = asyncio.get_running_loop()
         now = loop.time()
 
-        state: dict[str, Any] = {}
+        state = SchedulerState(debounce_active=self.debounce_active)
 
         if self._scheduled_action_task and not self._scheduled_action_task.done():
             remaining = max(0, int((self._scheduled_action_fire_at or now) - now))
-            state["scheduled_action"] = {
-                "content": self._scheduled_action_content,
-                "remaining_seconds": remaining,
-            }
+            state["scheduled_action"] = ScheduledActionState(
+                content=self._scheduled_action_content,
+                remaining_seconds=remaining,
+            )
 
         active_reminders = [r for r in self._reminders if not r.task.done()]
         self._reminders = active_reminders
         if active_reminders:
             state["pending_reminders"] = [
-                {
-                    "label": r.label,
-                    "remaining_seconds": max(0, int(r.fire_at - now)),
-                }
+                ReminderState(
+                    label=r.label,
+                    remaining_seconds=max(0, int(r.fire_at - now)),
+                )
                 for r in active_reminders
             ]
-
-        state["debounce_active"] = self.debounce_active
 
         return state
 
@@ -418,7 +448,7 @@ def create_stop_guard() -> HooksConfig:
     """Create a Stop hook that prevents the agent from ending its turn.
 
     The agent must use the ``sleep`` tool to yield control. This keeps
-    the agent in a persistent loop: wake → act → sleep → wake.
+    the agent in a persistent loop: wake -> act -> sleep -> wake.
 
     Returns:
         HooksConfig with a Stop hook.
@@ -446,9 +476,12 @@ def create_stop_guard() -> HooksConfig:
             reason="You cannot end your turn. Use sleep to pause between turns.",
         )
 
-    return cast(HooksConfig, {
-        "Stop": [HookMatcher(hooks=[stop_guard])],
-    })
+    return cast(
+        HooksConfig,
+        {
+            "Stop": [HookMatcher(hooks=[stop_guard])],
+        },
+    )
 
 
 def create_pending_event_guard(
@@ -498,12 +531,15 @@ def create_pending_event_guard(
             reason=(f"Blocked — {unread} unread event(s). Call context first."),
         )
 
-    return cast(HooksConfig, {
-        "PreToolUse": [
-            HookMatcher(matcher=tool_name, hooks=[event_guard])
-            for tool_name in guarded_tools
-        ],
-    })
+    return cast(
+        HooksConfig,
+        {
+            "PreToolUse": [
+                HookMatcher(matcher=tool_name, hooks=[event_guard])
+                for tool_name in guarded_tools
+            ],
+        },
+    )
 
 
 def create_meta_before_sleep_guard(

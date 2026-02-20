@@ -8,9 +8,11 @@ The key pattern is:
 3. Store results in notes/sessions/ for feedback loop analysis
 """
 
-from typing import Any, TypedDict
+from typing import TypedDict
 
 from pydantic import BaseModel, Field
+
+from lup.lib.metrics import MetricsSummary
 
 
 class TokenUsage(TypedDict, total=False):
@@ -103,7 +105,7 @@ class SessionResult(BaseModel):
     duration_seconds: float | None = None
     cost_usd: float | None = None
     token_usage: TokenUsage | None = None
-    tool_metrics: dict[str, Any] | None = None
+    tool_metrics: MetricsSummary | None = None
     outcome: str | None = Field(default=None, description="Outcome after resolution")
 
 

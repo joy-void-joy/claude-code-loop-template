@@ -11,9 +11,10 @@ belongs to which tool call.
 import itertools
 import json
 import logging
+from collections.abc import Sequence
 from datetime import datetime
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import NamedTuple
 
 from rich.console import Console
 
@@ -62,7 +63,7 @@ stream_log = logging.getLogger("lup.agent.stream")
 # ---------------------------------------------------------------------------
 
 
-def normalize_content(content: str | list[Any] | None) -> str:
+def normalize_content(content: str | Sequence[object] | None) -> str:
     """Convert MCP content blocks to a plain string."""
     if content is None:
         return "(empty)"
@@ -92,7 +93,9 @@ def _truncate_str_fields(obj: object, max_len: int = 500) -> object:
     return obj
 
 
-def format_tool_result(content: str | list[Any] | None, max_len: int = 500) -> str:
+def format_tool_result(
+    content: str | Sequence[object] | None, max_len: int = 500
+) -> str:
     """Format tool result content for display.
 
     If the content parses as a JSON dict, pretty-print it with string fields
@@ -107,7 +110,7 @@ def format_tool_result(content: str | list[Any] | None, max_len: int = 500) -> s
     return json.dumps(truncated, indent=2)
 
 
-def truncate_content(content: str | list[Any] | None, max_len: int = 500) -> str:
+def truncate_content(content: str | Sequence[object] | None, max_len: int = 500) -> str:
     """Normalize and truncate content for display."""
     text = normalize_content(content)
     if len(text) > max_len:
@@ -258,7 +261,7 @@ class TraceLogger(BaseModel):
     lines: list[str] = Field(default_factory=list)
     entries: list[TraceEntry] = Field(default_factory=list)
 
-    def model_post_init(self, _context: Any) -> None:
+    def model_post_init(self, _context: object) -> None:
         """Initialize the trace with header."""
         if not self.lines:
             header = f"# Trace: {self.title}\n"

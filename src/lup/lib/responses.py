@@ -7,6 +7,12 @@ The MCP response format is:
 
 For errors, add is_error=True:
     {"content": [{"type": "text", "text": "Error message"}], "is_error": True}
+
+Shape reference (McpResponse TypedDict):
+    content: list of {"type": str, "text": str}
+    is_error: bool (optional)
+
+The functions return dict[str, Any] to match the SDK tool handler interface.
 """
 
 import json
@@ -29,7 +35,7 @@ def mcp_response(text: str, *, is_error: bool = False) -> dict[str, Any]:
     return response
 
 
-def mcp_success(result: Any) -> dict[str, Any]:
+def mcp_success(result: object) -> dict[str, Any]:
     """Create a successful MCP response with JSON-encoded result.
 
     Args:

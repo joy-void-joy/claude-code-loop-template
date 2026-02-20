@@ -19,13 +19,15 @@ import logging
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel
 
 from lup.lib.paths import iter_session_dirs, sessions_dir
 
 logger = logging.getLogger(__name__)
+
+# Type alias for raw session JSON — schema varies by domain
+type SessionData = dict[str, object]
 
 
 def save_session(result: BaseModel, *, session_id: str) -> Path:
@@ -50,7 +52,7 @@ def save_session(result: BaseModel, *, session_id: str) -> Path:
     return filepath
 
 
-def load_sessions_json(session_id: str) -> list[dict[str, Any]]:
+def load_sessions_json(session_id: str) -> list[SessionData]:
     """Load all session JSON dicts for a given ID across all versions.
 
     Returns raw dicts rather than typed models, so this function has
@@ -62,23 +64,21 @@ def load_sessions_json(session_id: str) -> list[dict[str, Any]]:
     Returns:
         List of session dicts, sorted by timestamp field (oldest first).
     """
-    sessions: list[dict[str, Any]] = []
+    sessions: list[SessionData] = []
 
     for session_dir in iter_session_dirs(session_id=session_id):
         for filepath in sorted(session_dir.glob("*.json")):
             try:
-                data: dict[str, Any] = json.loads(
-                    filepath.read_text(encoding="utf-8")
-                )
+                data: SessionData = json.loads(filepath.read_text(encoding="utf-8"))
                 sessions.append(data)
             except (json.JSONDecodeError, OSError) as e:
                 logger.warning("Failed to load session from %s: %s", filepath, e)
 
-    sessions.sort(key=lambda s: s.get("timestamp", ""))
+    sessions.sort(key=lambda s: str(s.get("timestamp", "")))
     return sessions
 
 
-def get_latest_session_json(session_id: str) -> dict[str, Any] | None:
+def get_latest_session_json(session_id: str) -> SessionData | None:
     """Get the most recent session dict for an ID.
 
     Args:
@@ -128,9 +128,7 @@ def update_session_metadata(
     latest_file = sorted(all_files)[-1]
 
     try:
-        data: dict[str, Any] = json.loads(
-            latest_file.read_text(encoding="utf-8")
-        )
+        data: SessionData = json.loads(latest_file.read_text(encoding="utf-8"))
 
         if outcome is not None:
             data["outcome"] = outcome
@@ -149,7 +147,7 @@ def update_session_metadata(
 # -- Default formatter for format_history_for_context -------------------------
 
 
-def _default_session_formatter(session: dict[str, Any]) -> str:
+def _default_session_formatter(session: SessionData) -> str:
     """Format a session dict as a markdown summary.
 
     Extracts common fields that most domains will have. Downstream
@@ -162,7 +160,9 @@ def _default_session_formatter(session: dict[str, Any]) -> str:
         if "summary" in output:
             lines.append(f"**Summary**: {str(output['summary'])[:200]}...")
         if "confidence" in output:
-            lines.append(f"**Confidence**: {output['confidence']:.1%}")
+            confidence = output["confidence"]
+            if isinstance(confidence, (int, float)):
+                lines.append(f"**Confidence**: {confidence:.1%}")
 
     if session.get("outcome"):
         lines.append(f"**Outcome**: {session['outcome']}")
@@ -172,10 +172,10 @@ def _default_session_formatter(session: dict[str, Any]) -> str:
 
 
 def format_history_for_context(
-    sessions: list[dict[str, Any]],
+    sessions: list[SessionData],
     *,
     max_sessions: int = 5,
-    formatter: Callable[[dict[str, Any]], str] | None = None,
+    formatter: Callable[[SessionData], str] | None = None,
 ) -> str:
     """Format past sessions as context for the agent.
 

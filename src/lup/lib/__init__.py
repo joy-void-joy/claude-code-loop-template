@@ -6,21 +6,22 @@ by modifying the source. Domain-specific code belongs in lup.agent.
 
 Modules:
 - cache: TTL-based caching for API responses
+- client: Centralized Agent SDK client creation (build_client, run_query, one_shot)
 - history: Session history storage and retrieval (generic, model-agnostic)
 - hooks: Claude Agent SDK hook utilities
 - metrics: Tool call tracking with @tracked decorator
 - mcp: MCP server creation utilities
 - notes: RO/RW notes directory structure
 - paths: Centralized path constants (configurable via configure())
+- realtime: Scheduler for persistent agents (sleep/wake, debounce, reminders)
 - reflect: Reflection gate (enforce reflect-before-output)
 - responses: MCP response formatting utilities
 - retry: Retry decorator for API calls
 - sandbox: Docker-based Python sandbox for isolated code execution
-- client: Centralized Agent SDK client creation (build_client, run_query, one_shot)
 """
 
-from lup.lib.client import build_client, one_shot, run_query
 from lup.lib.cache import TTLCache, api_cache, cached, clear_cache, get_cache_stats
+from lup.lib.client import build_client, one_shot, run_query
 from lup.lib.history import (
     format_history_for_context,
     get_latest_session_json,
@@ -37,7 +38,13 @@ from lup.lib.hooks import (
     create_tool_allowlist_hook,
     merge_hooks,
 )
-from lup.lib.mcp import LupMcpTool, create_sdk_mcp_server, extract_sdk_tools, lup_tool, tool
+from lup.lib.mcp import (
+    LupMcpTool,
+    create_sdk_mcp_server,
+    extract_sdk_tools,
+    lup_tool,
+    tool,
+)
 from lup.lib.metrics import (
     MetricsCollector,
     ToolMetrics,
@@ -47,7 +54,6 @@ from lup.lib.metrics import (
     tracked,
 )
 from lup.lib.notes import NotesConfig, path_is_under, setup_notes
-from lup.lib.reflect import ReflectionGate, create_reflection_gate
 from lup.lib.realtime import (
     ActionCallback,
     DebounceInput,
@@ -59,6 +65,7 @@ from lup.lib.realtime import (
     create_pending_event_guard,
     create_stop_guard,
 )
+from lup.lib.reflect import ReflectionGate, create_reflection_gate
 from lup.lib.responses import mcp_error, mcp_response, mcp_success
 from lup.lib.retry import with_retry
 from lup.lib.sandbox import (
@@ -78,16 +85,16 @@ from lup.lib.trace import (
 )
 
 __all__ = [
-    # Client
-    "build_client",
-    "one_shot",
-    "run_query",
     # Cache
     "TTLCache",
     "api_cache",
     "cached",
     "clear_cache",
     "get_cache_stats",
+    # Client
+    "build_client",
+    "one_shot",
+    "run_query",
     # History
     "format_history_for_context",
     "get_latest_session_json",
@@ -119,9 +126,6 @@ __all__ = [
     "NotesConfig",
     "path_is_under",
     "setup_notes",
-    # Reflect
-    "ReflectionGate",
-    "create_reflection_gate",
     # Realtime
     "ActionCallback",
     "DebounceInput",
@@ -132,6 +136,9 @@ __all__ = [
     "create_meta_before_sleep_guard",
     "create_pending_event_guard",
     "create_stop_guard",
+    # Reflect
+    "ReflectionGate",
+    "create_reflection_gate",
     # Responses
     "mcp_error",
     "mcp_response",

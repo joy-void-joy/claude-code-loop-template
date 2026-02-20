@@ -67,16 +67,13 @@ def setup_notes(
     """
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # Session-specific paths (RW) -- versioned
     session_path = sessions_dir() / session_id
     output_path = outputs_dir() / (task_id or session_id) / timestamp
 
-    # Create directories
     session_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
     runtime_logs_path().mkdir(parents=True, exist_ok=True)
 
-    # Trace log file (agent cannot access logs/)
     trace_log = trace_logs_dir() / session_id / f"{timestamp}.md"
     trace_log.parent.mkdir(parents=True, exist_ok=True)
 
@@ -85,7 +82,7 @@ def setup_notes(
         output=output_path,
         trace_log=trace_log,
         rw=[session_path, output_path],
-        ro=[outputs_dir().parent],  # Read all versioned output dirs
+        ro=[outputs_dir().parent],
     )
 
 

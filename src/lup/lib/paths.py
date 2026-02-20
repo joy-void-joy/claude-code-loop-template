@@ -78,9 +78,6 @@ def configure(
 
 
 # -- Public path accessors ----------------------------------------------------
-# Functions instead of constants so they read the current (possibly overridden)
-# values. The old constant names are preserved as properties of a module-level
-# object for backward compat, but callers should prefer these functions.
 
 
 def project_root() -> Path:
@@ -153,9 +150,7 @@ def _version_dirs() -> list[Path]:
     tp = traces_path()
     if not tp.exists():
         return []
-    return sorted(
-        d for d in tp.iterdir() if d.is_dir() and not d.name.startswith(".")
-    )
+    return sorted(d for d in tp.iterdir() if d.is_dir() and not d.name.startswith("."))
 
 
 def iter_session_dirs(
@@ -166,10 +161,7 @@ def iter_session_dirs(
 
     Yields paths like: notes/traces/0.1.0/sessions/my-session/
     """
-    if version:
-        ver_dirs = [traces_path() / version]
-    else:
-        ver_dirs = _version_dirs()
+    ver_dirs = [traces_path() / version] if version else _version_dirs()
 
     for ver_dir in ver_dirs:
         sessions_base = ver_dir / "sessions"
@@ -193,10 +185,7 @@ def iter_output_dirs(
 
     Yields paths like: notes/traces/0.1.0/outputs/my-task/
     """
-    if version:
-        ver_dirs = [traces_path() / version]
-    else:
-        ver_dirs = _version_dirs()
+    ver_dirs = [traces_path() / version] if version else _version_dirs()
 
     for ver_dir in ver_dirs:
         outputs_base = ver_dir / "outputs"

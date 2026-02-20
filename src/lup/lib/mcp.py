@@ -28,7 +28,7 @@ Tool naming convention:
 """
 
 import logging
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any, TypedDict, cast
 
 from claude_agent_sdk import SdkMcpTool, create_sdk_mcp_server, tool
@@ -40,7 +40,16 @@ from pydantic import BaseModel, TypeAdapter
 logger = logging.getLogger(__name__)
 
 
-def _generate_json_schema(input_schema: type | dict[str, Any]) -> dict[str, Any]:
+class _ToolResponse(TypedDict, total=False):
+    """Shape of the dict returned by MCP tool handlers."""
+
+    content: list[dict[str, str]]
+    is_error: bool
+
+
+def _generate_json_schema(
+    input_schema: type | dict[str, type | str],
+) -> dict[str, object]:
     """Generate JSON Schema from input_schema (TypedDict, BaseModel, or dict).
 
     Args:
@@ -51,30 +60,30 @@ def _generate_json_schema(input_schema: type | dict[str, Any]) -> dict[str, Any]
         A valid JSON Schema dict for MCP tool registration.
     """
     if isinstance(input_schema, dict):
-        # Already a full JSON schema
         if "type" in input_schema and "properties" in input_schema:
-            return input_schema
-        # Simple type mapping dict like {"post_id": int, "query": str}
-        type_map = {
+            return cast(dict[str, object], input_schema)
+        type_map: dict[type, str] = {
             str: "string",
             int: "integer",
             float: "number",
             bool: "boolean",
             list: "array",
         }
-        properties = {}
+        properties: dict[str, dict[str, str]] = {}
         for param_name, param_type in input_schema.items():
-            properties[param_name] = {"type": type_map.get(param_type, "string")}
+            if isinstance(param_type, type):
+                properties[param_name] = {"type": type_map.get(param_type, "string")}
+            else:
+                properties[param_name] = {"type": str(param_type)}
         return {
             "type": "object",
             "properties": properties,
             "required": list(properties.keys()),
         }
 
-    # TypedDict or Pydantic BaseModel - use TypeAdapter for schema generation
     try:
         adapter = TypeAdapter(input_schema)
-        return adapter.json_schema()
+        return cast(dict[str, object], adapter.json_schema())
     except TypeError as e:
         logger.warning(
             "TypeAdapter doesn't support %s: %s. Using empty schema.",
@@ -99,7 +108,9 @@ class _CallToolResultWithAlias(CallToolResult):
 
 
 def create_mcp_server(
-    name: str, version: str = "1.0.0", tools: list[SdkMcpTool[Any]] | None = None
+    name: str,
+    version: str = "1.0.0",
+    tools: Sequence[SdkMcpTool[Any]] | None = None,
 ) -> McpSdkServerConfig:
     """Create an in-process MCP server with proper is_error handling.
 
@@ -123,7 +134,7 @@ def create_mcp_server(
         @server.list_tools()  # type: ignore[no-untyped-call,untyped-decorator]
         async def list_tools() -> list[Tool]:
             """Return the list of available tools."""
-            tool_list = []
+            tool_list: list[Tool] = []
             for tool_def in tools:
                 schema = _generate_json_schema(tool_def.input_schema)
                 tool_list.append(
@@ -136,31 +147,30 @@ def create_mcp_server(
             return tool_list
 
         @server.call_tool()  # type: ignore[untyped-decorator]
-        async def call_tool(name: str, arguments: dict[str, Any]) -> CallToolResult:
+        async def call_tool(name: str, arguments: dict[str, object]) -> CallToolResult:
             """Execute a tool by name with given arguments."""
             if name not in tool_map:
                 raise ValueError(f"Tool '{name}' not found")
 
             tool_def = tool_map[name]
-            result = await tool_def.handler(arguments)
+            result = cast(_ToolResponse, await tool_def.handler(arguments))
 
-            # Extract is_error flag (FIX: SDK's wrapper discards this)
             is_error = result.get("is_error", False)
 
-            # Convert content to MCP types
             content: list[TextContent | ImageContent] = []
             if "content" in result:
                 for item in result["content"]:
-                    if item.get("type") == "text":
-                        content.append(TextContent(type="text", text=item["text"]))
-                    if item.get("type") == "image":
-                        content.append(
-                            ImageContent(
-                                type="image",
-                                data=item["data"],
-                                mimeType=item["mimeType"],
+                    match item.get("type"):
+                        case "text":
+                            content.append(TextContent(type="text", text=item["text"]))
+                        case "image":
+                            content.append(
+                                ImageContent(
+                                    type="image",
+                                    data=item["data"],
+                                    mimeType=item["mimeType"],
+                                )
                             )
-                        )
 
             return _CallToolResultWithAlias(
                 content=cast(list[ContentBlock], content), isError=is_error

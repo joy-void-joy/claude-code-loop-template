@@ -17,14 +17,35 @@ import time
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import TypedDict, cast
 
 from pydantic import BaseModel, PrivateAttr
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-T = TypeVar("T")
+
+class ToolMetricsDict(TypedDict):
+    """Serialized metrics for a single tool."""
+
+    call_count: int
+    error_count: int
+    error_rate: str
+    total_duration_ms: float
+    avg_duration_ms: float
+    min_duration_ms: float
+    max_duration_ms: float
+
+
+class MetricsSummary(TypedDict):
+    """Serialized summary of all tool metrics."""
+
+    session_duration_seconds: float
+    total_tool_calls: int
+    total_errors: int
+    overall_error_rate: str
+    total_tool_time_ms: float
+    tools_used: int
+    by_tool: dict[str, ToolMetricsDict]
 
 
 class ToolMetrics(BaseModel):
@@ -59,21 +80,21 @@ class ToolMetrics(BaseModel):
         if is_error:
             self.error_count += 1
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> ToolMetricsDict:
         """Convert to dictionary for serialization."""
-        return {
-            "call_count": self.call_count,
-            "error_count": self.error_count,
-            "error_rate": f"{self.error_rate:.1%}",
-            "total_duration_ms": round(self.total_duration_ms, 2),
-            "avg_duration_ms": round(self.avg_duration_ms, 2),
-            "min_duration_ms": (
+        return ToolMetricsDict(
+            call_count=self.call_count,
+            error_count=self.error_count,
+            error_rate=f"{self.error_rate:.1%}",
+            total_duration_ms=round(self.total_duration_ms, 2),
+            avg_duration_ms=round(self.avg_duration_ms, 2),
+            min_duration_ms=(
                 round(self.min_duration_ms, 2)
                 if self.min_duration_ms != float("inf")
                 else 0
             ),
-            "max_duration_ms": round(self.max_duration_ms, 2),
-        }
+            max_duration_ms=round(self.max_duration_ms, 2),
+        )
 
 
 class MetricsCollector(BaseModel):
@@ -90,22 +111,22 @@ class MetricsCollector(BaseModel):
         """Record a tool call."""
         self._metrics[tool_name].record_call(duration_ms, is_error)
 
-    def get_summary(self) -> dict[str, Any]:
+    def get_summary(self) -> MetricsSummary:
         """Get a summary of all metrics."""
         total_calls = sum(m.call_count for m in self._metrics.values())
         total_errors = sum(m.error_count for m in self._metrics.values())
         total_duration = sum(m.total_duration_ms for m in self._metrics.values())
         session_duration = time.time() - self._session_start
 
-        return {
-            "session_duration_seconds": round(session_duration, 2),
-            "total_tool_calls": total_calls,
-            "total_errors": total_errors,
-            "overall_error_rate": f"{total_errors / max(1, total_calls):.1%}",
-            "total_tool_time_ms": round(total_duration, 2),
-            "tools_used": len(self._metrics),
-            "by_tool": {name: m.to_dict() for name, m in self._metrics.items()},
-        }
+        return MetricsSummary(
+            session_duration_seconds=round(session_duration, 2),
+            total_tool_calls=total_calls,
+            total_errors=total_errors,
+            overall_error_rate=f"{total_errors / max(1, total_calls):.1%}",
+            total_tool_time_ms=round(total_duration, 2),
+            tools_used=len(self._metrics),
+            by_tool={name: m.to_dict() for name, m in self._metrics.items()},
+        )
 
     def log_summary(self, level: int = logging.INFO) -> None:
         """Log a summary of all metrics."""
@@ -128,11 +149,11 @@ class MetricsCollector(BaseModel):
 _collector = MetricsCollector()
 
 
-def tracked(
+def tracked[**P, T](
     tool_name: str | None = None,
 ) -> Callable[
-    [Callable[P, Coroutine[Any, Any, T]]],
-    Callable[P, Coroutine[Any, Any, T]],
+    [Callable[P, Coroutine[object, object, T]]],
+    Callable[P, Coroutine[object, object, T]],
 ]:
     """Decorator to track tool call metrics.
 
@@ -146,8 +167,8 @@ def tracked(
     """
 
     def decorator(
-        func: Callable[P, Coroutine[Any, Any, T]],
-    ) -> Callable[P, Coroutine[Any, Any, T]]:
+        func: Callable[P, Coroutine[object, object, T]],
+    ) -> Callable[P, Coroutine[object, object, T]]:
         name = tool_name or func.__name__
 
         @wraps(func)
@@ -157,8 +178,7 @@ def tracked(
 
             try:
                 result = await func(*args, **kwargs)
-                # Check if result indicates an error (MCP response format)
-                if isinstance(result, dict) and cast(dict[str, Any], result).get(
+                if isinstance(result, dict) and cast(dict[str, object], result).get(
                     "is_error"
                 ):
                     is_error = True
@@ -180,7 +200,7 @@ def log_metrics_summary() -> None:
     _collector.log_summary()
 
 
-def get_metrics_summary() -> dict[str, Any]:
+def get_metrics_summary() -> MetricsSummary:
     """Get a summary of all tool metrics."""
     return _collector.get_summary()
 

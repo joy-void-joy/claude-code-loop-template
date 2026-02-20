@@ -127,6 +127,11 @@ def create_reflection_gate(
             }
         )
 
-    return cast(HooksConfig, {
-        "PreToolUse": [HookMatcher(matcher=gated_tool, hooks=[reflection_gate_hook])],
-    })
+    return cast(
+        HooksConfig,
+        {
+            "PreToolUse": [
+                HookMatcher(matcher=gated_tool, hooks=[reflection_gate_hook])
+            ],
+        },
+    )

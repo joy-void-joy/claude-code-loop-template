@@ -28,13 +28,12 @@ from docker.models.containers import Container, ExecResult
 from docker.utils.socket import SocketError, next_frame_header, read_exactly
 from pydantic import BaseModel, Field
 
-from .mcp import create_mcp_server
-from .metrics import tracked
-from .responses import mcp_error, mcp_success
+from lup.lib.mcp import create_mcp_server
+from lup.lib.metrics import tracked
+from lup.lib.responses import mcp_error, mcp_success
 
 logger = logging.getLogger(__name__)
 
-# Type alias for network mode
 NetworkMode = Literal["bridge", "none"]
 
 DEFAULT_PRE_INSTALL: tuple[str, ...] = (
@@ -244,12 +243,12 @@ class ReplSession:
                 f"Code execution timed out after {timeout_seconds} seconds"
             )
 
-        return {
-            "exit_code": response.get("exit_code", 1),
-            "stdout": response.get("stdout", ""),
-            "stderr": response.get("stderr", ""),
-            "duration_ms": response.get("duration_ms", 0),
-        }
+        return ExecuteCodeResult(
+            exit_code=int(response.get("exit_code", 1)),
+            stdout=str(response.get("stdout", "")),
+            stderr=str(response.get("stderr", "")),
+            duration_ms=int(response.get("duration_ms", 0)),
+        )
 
     def _send(self, data: bytes) -> None:
         """Write raw bytes to the exec socket stdin."""
@@ -262,7 +261,7 @@ class ReplSession:
         except (BrokenPipeError, OSError) as e:
             raise ReplCrashedError(f"REPL write failed: {e}") from e
 
-    def _recv_response(self, deadline: float) -> dict[str, Any]:
+    def _recv_response(self, deadline: float) -> dict[str, int | str]:
         """Read Docker multiplex frames until a complete JSON line arrives."""
         stdout_buf = b""
         while True:
@@ -276,13 +275,16 @@ class ReplSession:
                 raise ReplCrashedError("REPL EOF")
 
             data = read_exactly(self._sock, size)
-            if stream_type == 1:  # stdout
-                stdout_buf += data
-                if b"\n" in stdout_buf:
-                    line, _, _ = stdout_buf.partition(b"\n")
-                    return json.loads(line.decode("utf-8"))
-            elif stream_type == 2:  # stderr
-                logger.debug("REPL stderr: %s", data.decode("utf-8", errors="replace"))
+            match stream_type:
+                case 1:  # stdout
+                    stdout_buf += data
+                    if b"\n" in stdout_buf:
+                        line, _, _ = stdout_buf.partition(b"\n")
+                        return json.loads(line.decode("utf-8"))
+                case 2:  # stderr
+                    logger.debug(
+                        "REPL stderr: %s", data.decode("utf-8", errors="replace")
+                    )
 
     def _set_socket_timeout(self, timeout: float) -> None:
         """Set timeout on the underlying socket."""
@@ -418,10 +420,8 @@ class Sandbox:
         """
         self._client = docker.from_env()
 
-        # Remove stale container with the same name (e.g. from a crashed session)
         self._remove_stale_container()
 
-        # Ensure shared directory exists
         self._shared_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(
@@ -444,11 +444,9 @@ class Sandbox:
             network_mode=self._network_mode,
         )
 
-        # Pre-install packages (if configured and network available)
         if self._network_mode != "none":
             self._run_pre_install()
 
-        # Start persistent REPL
         self._write_repl_script()
         assert self._client is not None
         assert self._container is not None
@@ -519,16 +517,16 @@ class Sandbox:
                 logger.exception("REPL restart failed")
                 self._repl = None
                 raise SandboxNotInitializedError("REPL restart failed")
-            return {
-                "exit_code": 1,
-                "stdout": "",
-                "stderr": (
+            return ExecuteCodeResult(
+                exit_code=1,
+                stdout="",
+                stderr=(
                     "REPL process crashed and was restarted. "
                     "Variables from previous cells have been lost. "
                     "Please re-run any setup code."
                 ),
-                "duration_ms": 0,
-            }
+                duration_ms=0,
+            )
 
     def run_install(self, packages: list[str]) -> InstallPackageResult:
         """Install Python packages using uv.
@@ -542,14 +540,13 @@ class Sandbox:
         cmd = ["uv", "pip", "install", "--system", *packages]
         result: ExecResult = self.container.exec_run(cmd, demux=False)
 
-        # When demux=False, output is just bytes
         output_text = _decode_output(result.output)
 
-        return {
-            "exit_code": result.exit_code,
-            "output": output_text,
-            "packages": packages,
-        }
+        return InstallPackageResult(
+            exit_code=result.exit_code,
+            output=output_text,
+            packages=packages,
+        )
 
     # --- MCP tool creation ---
 
@@ -561,7 +558,6 @@ class Sandbox:
         Returns:
             List of MCP tools for code execution and package installation.
         """
-
         timeout_seconds = self._timeout_seconds
 
         @tool(

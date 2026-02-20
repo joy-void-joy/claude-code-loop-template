@@ -1,7 +1,6 @@
 """Retry utilities for API calls using tenacity."""
 
 from collections.abc import Callable
-from typing import TypeVar
 
 import httpx
 from tenacity import (
@@ -11,10 +10,8 @@ from tenacity import (
     wait_exponential,
 )
 
-T = TypeVar("T")
 
-
-def with_retry(
+def with_retry[T](
     max_attempts: int = 3,
     min_wait: float = 2,
     max_wait: float = 10,

@@ -10,21 +10,27 @@ import logging
 import time
 from collections.abc import Callable, Coroutine
 from functools import wraps
-from typing import Any, ParamSpec, TypeVar, cast
+from typing import TypedDict, cast
 
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
-P = ParamSpec("P")
-T = TypeVar("T")
-
 
 class CacheEntry(BaseModel):
     """A cached value with expiration time."""
 
-    value: Any
+    value: object
     expires_at: float
+
+
+class CacheStats(TypedDict):
+    """Statistics for a TTLCache instance."""
+
+    size: int
+    hits: int
+    misses: int
+    hit_rate: float
 
 
 class TTLCache:
@@ -50,7 +56,9 @@ class TTLCache:
         self._hits = 0
         self._misses = 0
 
-    def _make_key(self, func_name: str, args: tuple, kwargs: dict) -> str:
+    def _make_key(
+        self, func_name: str, args: tuple[object, ...], kwargs: dict[str, object]
+    ) -> str:
         """Generate a cache key from function name and arguments."""
         key_parts = [func_name]
 
@@ -58,12 +66,12 @@ class TTLCache:
             key_parts.append(repr(arg))
 
         for k, v in sorted(kwargs.items()):
-            key_parts.append(f"{k}={repr(v)}")
+            key_parts.append(f"{k}={v!r}")
 
         key_str = "|".join(key_parts)
         return hashlib.sha256(key_str.encode()).hexdigest()[:16]
 
-    async def get(self, key: str) -> tuple[bool, Any]:
+    async def get(self, key: str) -> tuple[bool, object]:
         """Get a value from cache.
 
         Args:
@@ -80,7 +88,6 @@ class TTLCache:
                 return False, None
 
             if time.time() > entry.expires_at:
-                # Expired - remove and return miss
                 del self._cache[key]
                 self._misses += 1
                 return False, None
@@ -88,7 +95,7 @@ class TTLCache:
             self._hits += 1
             return True, entry.value
 
-    async def set(self, key: str, value: Any, ttl: float | None = None) -> None:
+    async def set(self, key: str, value: object, ttl: float | None = None) -> None:
         """Store a value in cache.
 
         Args:
@@ -100,12 +107,10 @@ class TTLCache:
             ttl = self._default_ttl
 
         async with self._lock:
-            # Evict oldest entries if at max size
             if len(self._cache) >= self._max_size:
                 self._evict_expired()
 
             if len(self._cache) >= self._max_size:
-                # Still at max - evict oldest entry
                 oldest_key = min(
                     self._cache.keys(), key=lambda k: self._cache[k].expires_at
                 )
@@ -131,20 +136,20 @@ class TTLCache:
             self._cache.clear()
 
     @property
-    def stats(self) -> dict[str, int | float]:
+    def stats(self) -> CacheStats:
         """Return cache statistics."""
-        return {
-            "size": len(self._cache),
-            "hits": self._hits,
-            "misses": self._misses,
-            "hit_rate": self._hits / max(1, self._hits + self._misses),
-        }
+        return CacheStats(
+            size=len(self._cache),
+            hits=self._hits,
+            misses=self._misses,
+            hit_rate=self._hits / max(1, self._hits + self._misses),
+        )
 
-    def cached(
+    def cached[**P, T](
         self, ttl: float | None = None
     ) -> Callable[
-        [Callable[P, Coroutine[Any, Any, T]]],
-        Callable[P, Coroutine[Any, Any, T]],
+        [Callable[P, Coroutine[object, object, T]]],
+        Callable[P, Coroutine[object, object, T]],
     ]:
         """Decorator for caching async function results.
 
@@ -162,23 +167,20 @@ class TTLCache:
         """
 
         def decorator(
-            func: Callable[P, Coroutine[Any, Any, T]],
-        ) -> Callable[P, Coroutine[Any, Any, T]]:
+            func: Callable[P, Coroutine[object, object, T]],
+        ) -> Callable[P, Coroutine[object, object, T]]:
             @wraps(func)
             async def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
                 key = self._make_key(func.__name__, args, kwargs)
 
-                # Check cache
                 found, value = await self.get(key)
                 if found:
                     logger.debug("Cache hit for %s", func.__name__)
                     return cast(T, value)
 
-                # Cache miss - call function
                 logger.debug("Cache miss for %s", func.__name__)
                 result = await func(*args, **kwargs)
 
-                # Store result
                 await self.set(key, result, ttl)
 
                 return result
@@ -188,16 +190,15 @@ class TTLCache:
         return decorator
 
 
-# Global cache instance for API calls
-# 5 minute TTL is reasonable for most sessions
+# Global cache instance for API calls (5 minute TTL)
 api_cache = TTLCache(default_ttl=300.0, max_size=500)
 
 
-def cached(
+def cached[**P, T](
     ttl: float | None = None,
 ) -> Callable[
-    [Callable[P, Coroutine[Any, Any, T]]],
-    Callable[P, Coroutine[Any, Any, T]],
+    [Callable[P, Coroutine[object, object, T]]],
+    Callable[P, Coroutine[object, object, T]],
 ]:
     """Convenience decorator using the global API cache.
 
@@ -212,7 +213,7 @@ def cached(
     return api_cache.cached(ttl=ttl)
 
 
-def get_cache_stats() -> dict[str, int | float]:
+def get_cache_stats() -> CacheStats:
     """Get statistics from the global API cache."""
     return api_cache.stats
 
