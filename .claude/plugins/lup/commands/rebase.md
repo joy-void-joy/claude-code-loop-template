@@ -12,11 +12,9 @@ Clean up the commit history on the current feature branch, push it, and open (or
 
 ### Base branch (`<base>`)
 
-Auto-detect the base branch -- the branch this feature branch diverged from. Use `main` as the default. Verify with:
-```bash
-git merge-base --is-ancestor main HEAD && echo "main is ancestor"
-```
-If `main` is not an ancestor (e.g., branch was created from another feature branch), use `AskUserQuestion` to ask which branch to use as base.
+Auto-detect the base branch -- the branch this feature branch diverged from. For each local branch, find the merge-base with HEAD; the branch whose merge-base is closest to HEAD (fewest commits between merge-base and HEAD) is the parent. Exclude the current branch itself.
+
+If auto-detection is ambiguous or no clear parent is found, use `AskUserQuestion` to ask which branch to use as base.
 
 ### PR target (`<target>`)
 
@@ -138,7 +136,7 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
 
 ## Guidelines
 
-- **Never rebase main/master**
+- **Never rebase dev/main/master**
 - **Confirm before force push**
 - **Use --force** (not --force-with-lease) — after `git reset --soft`, the local ref diverges from remote in a way that --force-with-lease rejects. Plain --force is correct since this command intentionally rewrites history.
 - **Keep meaningful history**: Don't squash everything into one commit

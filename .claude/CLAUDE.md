@@ -266,9 +266,16 @@ Edit `src/lup/devtools/feedback.py`:
 
 This project uses **git worktrees** (not regular branches) to develop multiple features in parallel.
 
-**IMPORTANT:** Never commit _code_ directly to `main`. Always work in a worktree for code changes.
+**IMPORTANT:** Never commit _code_ directly to `dev`. Always work in a worktree for code changes.
 
-**Exception:** Data commits (`data(outputs):`) can go directly to main -- generated outputs don't need review.
+**Exception:** Data commits (`data(outputs):`) can go directly to `dev` -- generated outputs don't need review.
+
+### Two-Tier Branch Model
+
+- **`dev`** = integration branch. Feature PRs merge here. Day-to-day development target.
+- **`main`** = stable branch. Only receives PRs from `dev`. Branch-protected on GitHub.
+
+Worktrees typically branch from `dev`, but can also branch from other feature branches. Feature PRs target `dev` (or the branch they diverged from). Periodically, `dev` is merged into `main` via a reviewed PR.
 
 ### Worktrees vs Branches
 
@@ -288,7 +295,7 @@ This project uses **git worktrees** (not regular branches) to develop multiple f
    ```
 2. **Commit regularly and atomically** -- Each commit should represent a single logical change. Don't bundle unrelated changes together.
 3. Push the branch when the feature is complete (or periodically for backup)
-4. **`/lup:rebase`** -- Pushes the branch, opens a PR, then cleans up the commit history with `git reset --soft main` and force-pushes.
+4. **`/lup:rebase`** -- Pushes the branch, opens a PR, then cleans up the commit history with `git reset --soft dev` and force-pushes.
 5. **Review the PR** -- If changes are needed, fix them on the feature branch and re-run `/lup:rebase` (it rebuilds the history and force-pushes, updating the PR).
 6. **`/lup:close`** -- Once the PR is approved, merges it and cleans up the branch.
 

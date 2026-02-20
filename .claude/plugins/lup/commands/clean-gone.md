@@ -6,7 +6,11 @@ description: Review branches/worktrees and clean up merged ones
 
 # Clean Merged Branches
 
-Review all local branches and worktrees. Identify branches that are fully merged (into main or any other active branch) or have completed PRs. Present the merge graph and ask before deleting.
+Review all local branches and worktrees. Identify branches that are fully merged into the integration branch or any other active branch, or have completed PRs. Present the merge graph and ask before deleting.
+
+## Determine Integration Branch
+
+Auto-detect the integration branch: use `dev` if it exists locally, otherwise fall back to `main`. Use this as `<integration>` throughout.
 
 ## Arguments
 
@@ -25,7 +29,7 @@ If a branch name is given as an argument, skip the full inventory and target jus
 3. **Check safety**:
    - Is it the current branch? Warn and stop.
    - Does it have a worktree? Note for removal.
-   - Is it merged into main? (`git merge-base --is-ancestor`)
+   - Is it merged into `<integration>`? (`git merge-base --is-ancestor`)
    - Does it have a PR? (`gh pr list --state all --head <branch-name>`)
 4. **Report status** and **confirm with user** via AskUserQuestion before deleting.
 5. **Remove worktree** if applicable, then **delete the branch** (`-d`, escalate to `-D` only with user approval), then **delete remote** if it exists.
@@ -50,7 +54,7 @@ If a branch name is given as an argument, skip the full inventory and target jus
    ```bash
    git merge-base --is-ancestor <branch> <target>
    ```
-   A branch is "consumed" if it's fully contained in main OR any other active branch (not just main).
+   A branch is "consumed" if it's fully contained in `<integration>` OR any other active branch.
 
 4. **Check PR status** for branches that aren't ancestors of anything:
    ```bash
@@ -58,7 +62,7 @@ If a branch name is given as an argument, skip the full inventory and target jus
    ```
    A branch is also deletable if:
    - It has a merged PR (direct or via a `-rebase` suffix branch)
-   - Its corresponding rebase branch's PR was merged (content reached main through rebased commits)
+   - Its corresponding rebase branch's PR was merged (content reached `<integration>` through rebased commits)
 
 5. **Detect transitive merges** — for branches still unresolved after steps 3-4, check if their content reached main through an intermediate branch that was rebased:
    ```bash
@@ -66,16 +70,16 @@ If a branch name is given as an argument, skip the full inventory and target jus
    # For each unresolved branch B, check if B is an ancestor of any merged PR branch
    git merge-base --is-ancestor <B> <merged-pr-branch>
    ```
-   Walk the merge graph: if branch B is an ancestor of branch X, and X (or X-rebase) has a merged PR into main, then B's content reached main transitively — even though B itself isn't an ancestor of main (because X was rebased before merging).
+   Walk the merge graph: if branch B is an ancestor of branch X, and X (or X-rebase) has a merged PR into `<integration>`, then B's content reached `<integration>` transitively — even though B itself isn't an ancestor of `<integration>` (because X was rebased before merging).
 
    Also check for branches that were **branched from** an intermediate branch and have since been superseded:
    ```bash
    # Check unique commits remaining after cherry-pick filtering
-   git log --oneline --cherry-pick --left-only <B>...main | wc -l
+   git log --oneline --cherry-pick --left-only <B>...<integration> | wc -l
    # Check actual code diff (ignoring data/notes)
-   git diff <B> main --stat -- src/ .claude/ tests/
+   git diff <B> <integration> --stat -- src/ .claude/ tests/
    ```
-   If the branch has few unique commits and minimal source code diff vs main, it's **stale** (superseded by main's continued development, even if not literally merged).
+   If the branch has few unique commits and minimal source code diff vs `<integration>`, it's **stale** (superseded by `<integration>`'s continued development, even if not literally merged).
 
 6. **Categorize** each branch:
    - **DELETE** — fully contained in another branch, or PR merged
@@ -116,5 +120,5 @@ If a branch name is given as an argument, skip the full inventory and target jus
 - Never force-delete (`-D`) without explicit user approval for that specific branch
 - Always confirm before deleting anything
 - Skip the current branch — warn the user instead
-- A branch merged into ANY other active branch counts as consumed (not just main)
+- A branch merged into ANY other active branch counts as consumed (not just `<integration>`)
 - For rebased branches: the original feature branch content is in main via the rebase PR, even though `--is-ancestor` returns false (commits were rewritten)

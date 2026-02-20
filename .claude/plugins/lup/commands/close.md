@@ -59,8 +59,8 @@ Use `--squash` to create a single merge commit. The `--delete-branch` flag remov
 After merge, clean up local state:
 
 ```bash
-# Switch to main worktree and pull the merged changes
-cd ../main
+# Switch to the integration branch worktree and pull the merged changes
+cd ../dev
 git pull
 cd -
 
@@ -68,7 +68,7 @@ cd -
 git branch -D "$CURRENT_BRANCH" 2>/dev/null || true
 ```
 
-Then warn the user that their current worktree corresponds to the now-merged branch. Suggest they run `/lup:clean-gone` from the main worktree to remove this worktree, or navigate to the main worktree to continue working.
+Then warn the user that their current worktree corresponds to the now-merged branch. Suggest they run `/lup:clean-gone` from the dev worktree to remove this worktree, or navigate to the dev worktree to continue working.
 
 ### 6. Report
 
@@ -80,5 +80,5 @@ Summarize what was done:
 ## Guidelines
 
 - Always show review comments before merging -- never skip review feedback
-- Use `--squash` merge to keep main history clean
+- Use `--squash` merge to keep dev history clean
 - The user must confirm before merging via AskUserQuestion

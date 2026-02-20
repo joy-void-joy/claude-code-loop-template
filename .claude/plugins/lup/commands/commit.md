@@ -74,7 +74,7 @@ After creating commits:
 ## Guidelines
 
 - **Never amend** unless explicitly requested
-- **Never force push** to main/master
+- **Never force push** to dev/main/master
 - **Don't skip hooks** unless explicitly requested
 - **Don't commit secrets** (.env.local, credentials, API keys)
 - **Don't commit large binaries** unless necessary
