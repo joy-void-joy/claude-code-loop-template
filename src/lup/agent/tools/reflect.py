@@ -1,38 +1,37 @@
-"""Review tool — forced self-critique before output finalization.
+"""Reflection tool — forced self-assessment before output finalization.
 
-This is a TEMPLATE. Customize the reviewer prompt and input schema
+This is a TEMPLATE. Customize the input model and reviewer prompt
 for your domain.
 
-Pattern: A tool that internally runs a sub-agent to review the main
-agent's work. The main agent is prompted (or forced via hooks) to call
-this tool before producing its final output. The reviewer has sandboxed
-Read/Glob/Grep access to past outputs and WebFetch for additional research.
+Pattern: A tool the agent calls to record its self-assessment before
+producing final output. A :class:`~lup.lib.reflect.ReflectionGate`
+hook enforces this — StructuredOutput (or sleep) is denied until
+the agent has called ``review``.
 
-The reviewer runs as an independent ClaudeSDKClient, not as a Claude Code
-subagent — this gives you full control over model, tools, turn budget,
-and system prompt without leaking the main agent's context.
+Optionally runs a reviewer sub-agent (independent ClaudeSDKClient)
+that critiques the main agent's reasoning with sandboxed file access
+to past outputs and web search.
 
 Usage in core.py:
-    1. Import REVIEW_TOOLS and register them as an MCP server
-    2. In the system prompt, tell the agent to call `review` before
-       finalizing output
-    3. Optionally add a PostToolUse hook that gates the output tool
-       on having called `review` first
+    1. Call ``create_reflect_tools(session_dir=..., outputs_dir=...)``
+    2. Register the tools as an MCP server
+    3. Wire ``create_reflection_gate(gate=kit["gate"], ...)`` into hooks
 
 Tool naming convention:
-    After registration, the tool is named: mcp__{server_name}__review
-    Example: mcp__notes__review
+    After registration: ``mcp__{server_name}__review``
+    Example: ``mcp__notes__review``
 """
 
 import json
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, TextBlock
 from pydantic import BaseModel, Field
 
-from lup.lib import ResponseCollector, lup_tool, mcp_success, tracked
+from lup.lib import LupMcpTool, ResponseCollector, lup_tool, mcp_success, tracked
+from lup.lib.reflect import ReflectionGate
 
 logger = logging.getLogger(__name__)
 
@@ -87,12 +86,16 @@ the exact claim, factor, or number you're questioning.
 
 
 # ---------------------------------------------------------------------------
-# Input / output models
+# Input model (customize for your domain)
 # ---------------------------------------------------------------------------
 
 
-class ReviewInput(BaseModel):
-    """Input for the review tool. Customize fields for your domain."""
+class ReflectInput(BaseModel):
+    """Input for the reflection tool. Customize fields for your domain.
+
+    Add domain-specific fields here (e.g., factors with logits for
+    forecasting, move evaluation for game playing).
+    """
 
     assessment: str = Field(
         description=(
@@ -133,7 +136,7 @@ class ReviewInput(BaseModel):
 
 
 async def _run_reviewer(
-    validated: ReviewInput,
+    validated: ReflectInput,
     outputs_dir: Path | None,
 ) -> str | None:
     """Run the reviewer sub-agent and return its critique text."""
@@ -174,18 +177,29 @@ async def _run_reviewer(
 # ---------------------------------------------------------------------------
 
 
-def create_review_tool(
+class ReflectToolKit(TypedDict):
+    """Return type for :func:`create_reflect_tools`."""
+
+    tools: list[LupMcpTool]
+    gate: ReflectionGate
+
+
+def create_reflect_tools(
     *,
     session_dir: Path,
     outputs_dir: Path | None = None,
-) -> Any:
-    """Create a review tool instance bound to session paths.
+) -> ReflectToolKit:
+    """Create the reflection tool(s) and their gate state.
+
+    Returns both the tools (for MCP server registration) and the
+    gate (for wiring into :func:`~lup.lib.reflect.create_reflection_gate`).
 
     Args:
-        session_dir: Where to save the review output (YAML/JSON).
+        session_dir: Where to save the review output (JSON).
         outputs_dir: Path to past outputs for the reviewer to Read.
             If None, the reviewer won't have historical data access.
     """
+    gate = ReflectionGate()
 
     @lup_tool(
         "review",
@@ -197,11 +211,11 @@ def create_review_tool(
             "issues. Use the reviewer's feedback to adjust your output. "
             "You must call this at least once per session."
         ),
-        ReviewInput,
+        ReflectInput,
     )
     @tracked("review")
     async def review(args: dict[str, Any]) -> dict[str, Any]:
-        validated = ReviewInput.model_validate(args)
+        validated = ReflectInput.model_validate(args)
 
         # Save the review input
         session_dir.mkdir(parents=True, exist_ok=True)
@@ -209,6 +223,8 @@ def create_review_tool(
         review_path.write_text(
             json.dumps(validated.model_dump(), indent=2), encoding="utf-8"
         )
+
+        gate.mark_reflected()
 
         critique: str | None = None
         if not validated.skip_reviewer:
@@ -231,19 +247,4 @@ def create_review_tool(
 
         return mcp_success(result)
 
-    return review
-
-
-def create_review_tools(
-    *,
-    session_dir: Path,
-    outputs_dir: Path | None = None,
-) -> list[Any]:
-    """Create all review tools. Returns a list for MCP server registration."""
-    return [create_review_tool(session_dir=session_dir, outputs_dir=outputs_dir)]
-
-
-# --- Static tool collection (for simple use without session binding) ---
-# For session-bound tools, use create_review_tools() instead.
-REVIEW_TOOLS: list[Any] = []
-"""Empty by default. Use create_review_tools() for session-bound instances."""
+    return ReflectToolKit(tools=[review], gate=gate)

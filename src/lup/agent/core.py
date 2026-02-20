@@ -31,17 +31,18 @@ from lup.agent.prompts import get_system_prompt
 from lup.agent.subagents import get_subagents
 from lup.agent.tool_policy import ToolPolicy
 from lup.agent.tools.example import EXAMPLE_TOOLS
+from lup.agent.tools.reflect import create_reflect_tools
 from lup.version import AGENT_VERSION
 from lup.lib import (
-    HooksConfig,
     NotesConfig,
     ResponseCollector,
     Sandbox,
     TraceLogger,
-    append_score_row,
     create_permission_hooks,
+    create_reflection_gate,
     create_sdk_mcp_server,
     extract_sdk_tools,
+    merge_hooks,
     get_metrics_summary,
     log_metrics_summary,
     reset_metrics,
@@ -73,19 +74,32 @@ def _build_options(
         tools=extract_sdk_tools(EXAMPLE_TOOLS),
     )
 
+    # Reflection tools — forced self-review before structured output
+    reflect_kit = create_reflect_tools(
+        session_dir=notes_config.session,
+        outputs_dir=notes_config.output.parent,
+    )
+    reflect_server = create_sdk_mcp_server(
+        name="notes",
+        version="1.0.0",
+        tools=extract_sdk_tools(reflect_kit["tools"]),
+    )
+
     # Collect all MCP servers to register
-    additional_servers: list[McpSdkServerConfig] = [example_server]
+    additional_servers: list[McpSdkServerConfig] = [example_server, reflect_server]
     if sandbox_server is not None:
         additional_servers.append(sandbox_server)
 
     policy = ToolPolicy.from_settings(settings)
     permission_hooks = create_permission_hooks(notes_config.rw, notes_config.ro)
 
-    # Compose hooks from multiple sources using merge_hooks():
-    #   from lup.lib import merge_hooks
-    #   quality_hooks = create_post_tool_hooks()
-    #   hooks = merge_hooks(permission_hooks, quality_hooks)
-    hooks: HooksConfig = permission_hooks
+    # Reflection gate: deny StructuredOutput until agent calls review
+    gate_hooks = create_reflection_gate(
+        gate=reflect_kit["gate"],
+        gated_tool="StructuredOutput",
+        reflection_tool_name="mcp__notes__review",
+    )
+    hooks = merge_hooks(permission_hooks, gate_hooks)
 
     return ClaudeAgentOptions(
         model=settings.model,
@@ -167,8 +181,7 @@ async def run_agent(
         collector=collector,
     )
 
-    save_session(session_result)
-    append_score_row(session_result)
+    save_session(session_result, session_id=session_result.session_id)
 
     return session_result
 

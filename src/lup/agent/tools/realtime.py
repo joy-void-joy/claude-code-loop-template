@@ -331,7 +331,7 @@ def create_realtime_tools(
             return mcp_error(str(e))
         if trace_logger:
             trace_logger.log_text(inp.thought, heading="Meta")
-        scheduler.meta_recorded = True
+        scheduler.meta_gate.mark_reflected()
         return mcp_response("Recorded.")
 
     return [
