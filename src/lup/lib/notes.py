@@ -22,7 +22,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from lup.lib.paths import RUNTIME_LOGS_PATH, outputs_dir, sessions_dir, trace_logs_dir
+from lup.lib.paths import outputs_dir, runtime_logs_path, sessions_dir, trace_logs_dir
 
 
 class NotesConfig(BaseModel):
@@ -74,7 +74,7 @@ def setup_notes(
     # Create directories
     session_path.mkdir(parents=True, exist_ok=True)
     output_path.mkdir(parents=True, exist_ok=True)
-    RUNTIME_LOGS_PATH.mkdir(parents=True, exist_ok=True)
+    runtime_logs_path().mkdir(parents=True, exist_ok=True)
 
     # Trace log file (agent cannot access logs/)
     trace_log = trace_logs_dir() / session_id / f"{timestamp}.md"

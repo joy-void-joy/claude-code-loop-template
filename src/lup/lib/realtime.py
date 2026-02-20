@@ -29,6 +29,8 @@ from typing import Any, Awaitable, Callable, cast
 
 from pydantic import BaseModel, Field
 
+from lup.lib.reflect import ReflectionGate
+
 from lup.lib.hooks import HooksConfig
 
 logger = logging.getLogger(__name__)
@@ -151,8 +153,8 @@ class Scheduler:
         # Delayed actions
         self._pending_actions: list[tuple[asyncio.Task[None], str]] = []
 
-        # Meta-before-sleep flag
-        self.meta_recorded: bool = False
+        # Meta-before-sleep gate (uses lib-level ReflectionGate)
+        self.meta_gate = ReflectionGate()
 
     @property
     def ideas(self) -> list[str]:
@@ -371,7 +373,7 @@ class Scheduler:
     def on_agent_action(self) -> None:
         """Cancel scheduled action on agent's own action and require new meta."""
         self.cancel_scheduled_action()
-        self.meta_recorded = False
+        self.meta_gate.reset()
 
     # ------------------------------------------------------------------
     # State for context tool
@@ -511,36 +513,23 @@ def create_meta_before_sleep_guard(
 ) -> HooksConfig:
     """Create a PreToolUse hook that requires meta before sleep.
 
-    Forces the agent to call the ``meta`` tool (process self-assessment)
-    before every sleep. Reset via ``scheduler.meta_recorded = False``
-    after each agent action.
+    Convenience wrapper around :func:`~lup.lib.reflect.create_reflection_gate`
+    for the persistent agent pattern. Forces the agent to call the ``meta``
+    tool (process self-assessment) before every sleep. The gate resets
+    automatically via ``scheduler.on_agent_action()``.
 
     Args:
-        scheduler: The Scheduler instance.
+        scheduler: The Scheduler instance (uses ``scheduler.meta_gate``).
         sleep_tool_name: MCP tool name for sleep (e.g., ``"mcp__session__sleep"``).
 
     Returns:
         HooksConfig with PreToolUse hooks.
     """
-    from claude_agent_sdk import HookInput, HookMatcher
-    from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
+    from lup.lib.reflect import create_reflection_gate
 
-    async def meta_guard(
-        input_data: HookInput,
-        _tool_use_id: str | None,
-        _context: HookContext,
-    ) -> SyncHookJSONOutput:
-        if not scheduler.meta_recorded:
-            return SyncHookJSONOutput(
-                decision="block",
-                reason=(
-                    "You must call meta before sleeping. Assess your process this turn."
-                ),
-            )
-        return SyncHookJSONOutput()
-
-    return cast(HooksConfig, {
-        "PreToolUse": [
-            HookMatcher(matcher=sleep_tool_name, hooks=[meta_guard]),
-        ],
-    })
+    return create_reflection_gate(
+        gate=scheduler.meta_gate,
+        gated_tool=sleep_tool_name,
+        reflection_tool_name="meta",
+        denial_message="You must call meta before sleeping. Assess your process this turn.",
+    )

@@ -6,73 +6,88 @@ This module handles:
 3. Tracking session metadata (submitted, outcome, etc.)
 
 The feedback loop scripts read from this storage.
+
+All functions accept :class:`pydantic.BaseModel` instances and work
+with raw JSON dicts — no dependency on domain-specific models.
+The ``format_history_for_context`` function accepts a pluggable
+formatter so downstream projects can display domain-specific fields
+without modifying this module.
 """
 
 import json
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
-from lup.agent.models import SessionResult
+from pydantic import BaseModel
+
 from lup.lib.paths import iter_session_dirs, sessions_dir
 
 logger = logging.getLogger(__name__)
 
 
-def save_session(result: SessionResult) -> Path:
+def save_session(result: BaseModel, *, session_id: str) -> Path:
     """Save a session result to disk.
 
     Args:
-        result: The session result to save.
+        result: Any Pydantic model representing a session result.
+        session_id: Unique session identifier.
 
     Returns:
         Path to the saved file.
     """
-    session_dir = sessions_dir() / result.session_id
+    session_dir = sessions_dir() / session_id
     session_dir.mkdir(parents=True, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filepath = session_dir / f"{timestamp}.json"
 
     filepath.write_text(result.model_dump_json(indent=2), encoding="utf-8")
-    logger.info("Saved session %s to %s", result.session_id, filepath)
+    logger.info("Saved session %s to %s", session_id, filepath)
 
     return filepath
 
 
-def load_sessions(session_id: str) -> list[SessionResult]:
-    """Load all sessions for a given ID across all versions.
+def load_sessions_json(session_id: str) -> list[dict[str, Any]]:
+    """Load all session JSON dicts for a given ID across all versions.
+
+    Returns raw dicts rather than typed models, so this function has
+    no dependency on domain-specific model classes.
 
     Args:
         session_id: The session identifier.
 
     Returns:
-        List of SessionResult objects, sorted by timestamp (oldest first).
+        List of session dicts, sorted by timestamp field (oldest first).
     """
-    sessions: list[SessionResult] = []
+    sessions: list[dict[str, Any]] = []
 
     for session_dir in iter_session_dirs(session_id=session_id):
         for filepath in sorted(session_dir.glob("*.json")):
             try:
-                data = json.loads(filepath.read_text(encoding="utf-8"))
-                sessions.append(SessionResult.model_validate(data))
-            except Exception as e:
+                data: dict[str, Any] = json.loads(
+                    filepath.read_text(encoding="utf-8")
+                )
+                sessions.append(data)
+            except (json.JSONDecodeError, OSError) as e:
                 logger.warning("Failed to load session from %s: %s", filepath, e)
 
-    sessions.sort(key=lambda s: s.timestamp)
+    sessions.sort(key=lambda s: s.get("timestamp", ""))
     return sessions
 
 
-def get_latest_session(session_id: str) -> SessionResult | None:
-    """Get the most recent session for an ID.
+def get_latest_session_json(session_id: str) -> dict[str, Any] | None:
+    """Get the most recent session dict for an ID.
 
     Args:
         session_id: The session identifier.
 
     Returns:
-        The most recent SessionResult, or None if no sessions exist.
+        The most recent session dict, or None if no sessions exist.
     """
-    sessions = load_sessions(session_id)
+    sessions = load_sessions_json(session_id)
     return sessions[-1] if sessions else None
 
 
@@ -103,7 +118,6 @@ def update_session_metadata(
     Returns:
         True if a session was updated, False if not found.
     """
-    # Find the latest session file across all versions
     all_files: list[Path] = []
     for session_dir in iter_session_dirs(session_id=session_id):
         all_files.extend(session_dir.glob("*.json"))
@@ -114,7 +128,9 @@ def update_session_metadata(
     latest_file = sorted(all_files)[-1]
 
     try:
-        data = json.loads(latest_file.read_text(encoding="utf-8"))
+        data: dict[str, Any] = json.loads(
+            latest_file.read_text(encoding="utf-8")
+        )
 
         if outcome is not None:
             data["outcome"] = outcome
@@ -125,19 +141,49 @@ def update_session_metadata(
         logger.info("Updated metadata for session %s", session_id)
         return True
 
-    except Exception as e:
+    except (json.JSONDecodeError, OSError) as e:
         logger.warning("Failed to update session %s: %s", session_id, e)
         return False
 
 
+# -- Default formatter for format_history_for_context -------------------------
+
+
+def _default_session_formatter(session: dict[str, Any]) -> str:
+    """Format a session dict as a markdown summary.
+
+    Extracts common fields that most domains will have. Downstream
+    projects can provide a custom formatter for domain-specific display.
+    """
+    lines: list[str] = [f"### {session.get('timestamp', 'unknown')}"]
+
+    output = session.get("output", {})
+    if isinstance(output, dict):
+        if "summary" in output:
+            lines.append(f"**Summary**: {str(output['summary'])[:200]}...")
+        if "confidence" in output:
+            lines.append(f"**Confidence**: {output['confidence']:.1%}")
+
+    if session.get("outcome"):
+        lines.append(f"**Outcome**: {session['outcome']}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def format_history_for_context(
-    sessions: list[SessionResult], max_sessions: int = 5
+    sessions: list[dict[str, Any]],
+    *,
+    max_sessions: int = 5,
+    formatter: Callable[[dict[str, Any]], str] | None = None,
 ) -> str:
     """Format past sessions as context for the agent.
 
     Args:
-        sessions: List of past sessions.
+        sessions: List of session dicts (from :func:`load_sessions_json`).
         max_sessions: Maximum number of sessions to include.
+        formatter: Callable that formats a single session dict into
+            a markdown string. Uses a default formatter if ``None``.
 
     Returns:
         Markdown-formatted summary of past sessions.
@@ -145,16 +191,10 @@ def format_history_for_context(
     if not sessions:
         return ""
 
+    fmt = formatter or _default_session_formatter
+
     lines = ["## Past Sessions\n"]
-
     for session in sessions[-max_sessions:]:
-        lines.append(f"### {session.timestamp}")
-        lines.append(f"**Confidence**: {session.output.confidence:.1%}")
-        lines.append(f"**Summary**: {session.output.summary[:200]}...")
-
-        if hasattr(session, "outcome") and session.outcome:
-            lines.append(f"**Outcome**: {session.outcome}")
-
-        lines.append("")
+        lines.append(fmt(session))
 
     return "\n".join(lines)

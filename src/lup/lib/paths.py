@@ -3,6 +3,12 @@
 All session-related paths are routed through this module. Writers use
 version-specific directories; readers iterate across all versions.
 
+Paths auto-detect the project root (walking up to ``pyproject.toml``)
+but can be overridden via :func:`configure`::
+
+    from lup.lib.paths import configure
+    configure(root=Path("/my/project"), notes_dir=Path("/my/data/notes"))
+
 Layout:
     notes/traces/<version>/sessions/<session_id>/<timestamp>.json
     notes/traces/<version>/outputs/<task_id>/<timestamp>/
@@ -31,17 +37,83 @@ def _find_project_root() -> Path:
     raise RuntimeError("Could not find project root (no pyproject.toml found)")
 
 
-# -- Root paths ---------------------------------------------------------------
+# -- Mutable path state -------------------------------------------------------
+# Auto-detected on first import; overridable via configure().
 
-_PROJECT_ROOT = _find_project_root()
-NOTES_PATH = _PROJECT_ROOT / "notes"
-RUNTIME_LOGS_PATH = _PROJECT_ROOT / "logs"
+_project_root = _find_project_root()
+_notes_path = _project_root / "notes"
+_runtime_logs_path = _project_root / "logs"
 
-# -- Versioned trace paths ----------------------------------------------------
 
-TRACES_PATH = NOTES_PATH / "traces"
-FEEDBACK_PATH = NOTES_PATH / "feedback_loop"
-SCORES_CSV_PATH = NOTES_PATH / "scores.csv"
+def configure(
+    *,
+    root: Path | None = None,
+    notes_dir: Path | None = None,
+    logs_dir: Path | None = None,
+) -> None:
+    """Override auto-detected paths.
+
+    Call before any session operations. All derived paths
+    (``traces_path``, ``feedback_path``, ``scores_csv_path``, etc.)
+    update automatically since they read from these values.
+
+    Args:
+        root: Project root directory. Resets ``notes_dir`` and
+            ``logs_dir`` to ``root/notes`` and ``root/logs`` unless
+            they are also specified.
+        notes_dir: Override notes directory independently.
+        logs_dir: Override runtime logs directory independently.
+    """
+    global _project_root, _notes_path, _runtime_logs_path  # noqa: PLW0603
+
+    if root is not None:
+        _project_root = root
+        _notes_path = root / "notes"
+        _runtime_logs_path = root / "logs"
+
+    if notes_dir is not None:
+        _notes_path = notes_dir
+    if logs_dir is not None:
+        _runtime_logs_path = logs_dir
+
+
+# -- Public path accessors ----------------------------------------------------
+# Functions instead of constants so they read the current (possibly overridden)
+# values. The old constant names are preserved as properties of a module-level
+# object for backward compat, but callers should prefer these functions.
+
+
+def project_root() -> Path:
+    """Return the project root directory."""
+    return _project_root
+
+
+def notes_path() -> Path:
+    """Return the notes directory (``<root>/notes`` by default)."""
+    return _notes_path
+
+
+def runtime_logs_path() -> Path:
+    """Return the runtime logs directory (``<root>/logs`` by default)."""
+    return _runtime_logs_path
+
+
+def traces_path() -> Path:
+    """Return ``notes/traces/``."""
+    return _notes_path / "traces"
+
+
+def feedback_path() -> Path:
+    """Return ``notes/feedback_loop/``."""
+    return _notes_path / "feedback_loop"
+
+
+def scores_csv_path() -> Path:
+    """Return ``notes/scores.csv``."""
+    return _notes_path / "scores.csv"
+
+
+# -- Timestamp helpers --------------------------------------------------------
 
 _TIMESTAMP_FMT = "%Y%m%d_%H%M%S"
 _TIMESTAMP_RE = re.compile(r"\d{8}_\d{6}")
@@ -60,17 +132,17 @@ def parse_timestamp(name: str) -> datetime:
 
 def sessions_dir(version: str = AGENT_VERSION) -> Path:
     """Directory for session JSONs: notes/traces/<version>/sessions/"""
-    return TRACES_PATH / version / "sessions"
+    return traces_path() / version / "sessions"
 
 
 def outputs_dir(version: str = AGENT_VERSION) -> Path:
     """Directory for agent outputs: notes/traces/<version>/outputs/"""
-    return TRACES_PATH / version / "outputs"
+    return traces_path() / version / "outputs"
 
 
 def trace_logs_dir(version: str = AGENT_VERSION) -> Path:
     """Directory for reasoning logs: notes/traces/<version>/logs/"""
-    return TRACES_PATH / version / "logs"
+    return traces_path() / version / "logs"
 
 
 # -- Read paths (cross-version iteration) -------------------------------------
@@ -78,10 +150,11 @@ def trace_logs_dir(version: str = AGENT_VERSION) -> Path:
 
 def _version_dirs() -> list[Path]:
     """Return all version directories under notes/traces/, sorted."""
-    if not TRACES_PATH.exists():
+    tp = traces_path()
+    if not tp.exists():
         return []
     return sorted(
-        d for d in TRACES_PATH.iterdir() if d.is_dir() and not d.name.startswith(".")
+        d for d in tp.iterdir() if d.is_dir() and not d.name.startswith(".")
     )
 
 
@@ -94,7 +167,7 @@ def iter_session_dirs(
     Yields paths like: notes/traces/0.1.0/sessions/my-session/
     """
     if version:
-        ver_dirs = [TRACES_PATH / version]
+        ver_dirs = [traces_path() / version]
     else:
         ver_dirs = _version_dirs()
 
@@ -121,7 +194,7 @@ def iter_output_dirs(
     Yields paths like: notes/traces/0.1.0/outputs/my-task/
     """
     if version:
-        ver_dirs = [TRACES_PATH / version]
+        ver_dirs = [traces_path() / version]
     else:
         ver_dirs = _version_dirs()
 

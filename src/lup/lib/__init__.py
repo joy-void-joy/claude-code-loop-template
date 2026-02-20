@@ -1,25 +1,29 @@
 """Library utilities for self-improving agents.
 
-This package contains reusable abstractions that rarely change:
+This package contains reusable, **parametric** abstractions that work
+out of the box and are configured through function arguments — never
+by modifying the source. Domain-specific code belongs in lup.agent.
+
+Modules:
 - cache: TTL-based caching for API responses
-- history: Session history storage and retrieval
+- history: Session history storage and retrieval (generic, model-agnostic)
 - hooks: Claude Agent SDK hook utilities
 - metrics: Tool call tracking with @tracked decorator
 - mcp: MCP server creation utilities
 - notes: RO/RW notes directory structure
+- paths: Centralized path constants (configurable via configure())
+- reflect: Reflection gate (enforce reflect-before-output)
 - responses: MCP response formatting utilities
 - retry: Retry decorator for API calls
 - sandbox: Docker-based Python sandbox for isolated code execution
-
-Domain-specific code belongs in lup.agent, not here.
 """
 
 from lup.lib.cache import TTLCache, api_cache, cached, clear_cache, get_cache_stats
 from lup.lib.history import (
     format_history_for_context,
-    get_latest_session,
+    get_latest_session_json,
     list_all_sessions,
-    load_sessions,
+    load_sessions_json,
     save_session,
     update_session_metadata,
 )
@@ -41,6 +45,7 @@ from lup.lib.metrics import (
     tracked,
 )
 from lup.lib.notes import NotesConfig, path_is_under, setup_notes
+from lup.lib.reflect import ReflectionGate, create_reflection_gate
 from lup.lib.realtime import (
     ActionCallback,
     DebounceInput,
@@ -53,13 +58,6 @@ from lup.lib.realtime import (
     create_stop_guard,
 )
 from lup.lib.responses import mcp_error, mcp_response, mcp_success
-from lup.lib.scoring import (
-    append_score_row,
-    read_scores_csv,
-    read_scores_for_task,
-    read_scores_for_version,
-    rebuild_scores_csv,
-)
 from lup.lib.retry import with_retry
 from lup.lib.sandbox import (
     CodeExecutionTimeoutError,
@@ -86,9 +84,9 @@ __all__ = [
     "get_cache_stats",
     # History
     "format_history_for_context",
-    "get_latest_session",
+    "get_latest_session_json",
     "list_all_sessions",
-    "load_sessions",
+    "load_sessions_json",
     "save_session",
     "update_session_metadata",
     # Hooks
@@ -115,6 +113,9 @@ __all__ = [
     "NotesConfig",
     "path_is_under",
     "setup_notes",
+    # Reflect
+    "ReflectionGate",
+    "create_reflection_gate",
     # Realtime
     "ActionCallback",
     "DebounceInput",
@@ -135,12 +136,6 @@ __all__ = [
     "CodeExecutionTimeoutError",
     "Sandbox",
     "SandboxNotInitializedError",
-    # Scoring
-    "append_score_row",
-    "read_scores_csv",
-    "read_scores_for_task",
-    "read_scores_for_version",
-    "rebuild_scores_csv",
     # Trace
     "ResponseCollector",
     "TraceEntry",
