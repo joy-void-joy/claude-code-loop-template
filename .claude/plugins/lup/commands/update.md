@@ -146,6 +146,6 @@ git commit -m "feat(lib): apply improvements from <project>"
 - **Generalize, don't dismiss** — when a downstream repo adds something domain-specific, ask "what pattern does this represent?" and port the pattern as scaffold. A forecasting-specific agent becomes a domain-neutral agent scaffold.
 - **Ask, don't skip** — when uncertain about a change, present it to the user with your reasoning and let them decide
 - **Adapt, don't copy** — downstream code uses domain-specific naming, paths, and models. Replace these with template-appropriate equivalents (`lup` package paths, generic metrics, placeholder descriptions).
-- **Re-evaluate file placement** — downstream repos may put modules in `agent/` because they import from domain config. After generalizing (removing domain imports), re-check: does the module import from `agent/`? If not, it belongs in `lib/`.
+- **Re-evaluate file placement** — after generalizing, re-check: can this module be used as-is without templating or source modification? If yes, it belongs in `lib/`, not `agent/`. A quick proxy: does it import from `agent/`? Downstream repos may have had domain-specific reasons for a different placement.
 - **Test after applying** — always run pyright/ruff/pytest after applying changes
 - **Mark synced even if nothing applied** — this advances the sync pointer so you don't re-review the same commits next time

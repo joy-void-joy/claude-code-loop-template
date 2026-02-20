@@ -479,7 +479,7 @@ The codebase should read as a **monolithic source of truth** -- understandable w
 - **Utilities belong in `lib/`** -- Functions like `print_block`, `TraceLogger`, formatters go in lib, not agent.
 - **`agent/` imports from `lib/`** -- The agent layer uses lib abstractions, never redefines them.
 - **Check before writing** -- Before creating a utility, search lib/ for existing implementations.
-- **Placement test** -- Does this module import from `agent/`? If no, it belongs in `lib/`, not `agent/`. Don't replicate downstream project file structure without re-evaluating.
+- **Placement test** -- Can this module be used as-is without templating or source modification? If yes, it belongs in `lib/`, not `agent/`. Quick proxy: does it import from `agent/`?
 
 ### Parametric Library Design
 
