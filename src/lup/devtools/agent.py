@@ -430,7 +430,7 @@ async def _repl(
     panel_lines += ["", "[dim]/quit to exit[/dim]"]
 
     console.print()
-    console.print(Panel("\n".join(panel_lines), border_style="blue", expand=False))
+    console.print(Panel("\n".join(panel_lines), border_style="blue", width=60))
     console.print()
 
     async with build_client(
