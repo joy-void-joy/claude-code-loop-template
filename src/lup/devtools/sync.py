@@ -92,18 +92,20 @@ def ensure_local(proj: dict[str, str]) -> str:
     """Ensure a project has a usable local path."""
     path = proj.get("path", "")
     name = proj["name"]
+    branch = proj.get("branch", "")
     if path and Path(path).exists():
         ensure_ref_symlink(name, path)
         return path
 
     cache_path = CACHE_DIR / name
     url = proj.get("url", "")
+    reset_target = f"origin/{branch}" if branch else "origin/HEAD"
 
     if cache_path.exists():
         typer.echo(f"Fetching latest for '{name}' from cache...")
         try:
             git("-C", str(cache_path), "fetch", "--quiet")
-            git("-C", str(cache_path), "reset", "--hard", "origin/HEAD", "--quiet")
+            git("-C", str(cache_path), "reset", "--hard", reset_target, "--quiet")
         except sh.ErrorReturnCode as e:
             typer.echo(f"Warning: fetch failed: {e.stderr.decode().strip()}")
         ensure_ref_symlink(name, str(cache_path))
@@ -112,8 +114,12 @@ def ensure_local(proj: dict[str, str]) -> str:
     if url:
         typer.echo(f"Cloning '{name}' from {url}...")
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        clone_args = ["clone", "--depth=200"]
+        if branch:
+            clone_args.extend(["--branch", branch])
+        clone_args.extend([url, str(cache_path)])
         try:
-            git("clone", "--depth=200", url, str(cache_path))
+            git(*clone_args)
         except sh.ErrorReturnCode as e:
             typer.echo(f"Clone failed: {e.stderr.decode().strip()}")
             raise typer.Exit(1)
@@ -190,7 +196,9 @@ def list_projects_cmd() -> None:
             continue
 
         behind = commit_count(resolved, synced)
-        print(f"{p['name']:<20} {behind:<10} {synced_short:<12} {resolved}")
+        branch = p.get("branch", "")
+        source = f"{resolved} ({branch})" if branch else resolved
+        print(f"{p['name']:<20} {behind:<10} {synced_short:<12} {source}")
 
     print()
 
@@ -268,6 +276,9 @@ def setup_project(
     synced: Annotated[
         bool, typer.Option("--synced", help="Mark as already synced at current HEAD")
     ] = False,
+    branch: Annotated[
+        str, typer.Option("--branch", "-b", help="Branch to track (default: remote HEAD)")
+    ] = "",
 ) -> None:
     """Set the local path for a project (writes to downstream.json.local)."""
     resolved = Path(path).resolve()
@@ -290,11 +301,16 @@ def setup_project(
         local_projects.append(entry)
         local_data["projects"] = local_projects
 
+    if branch:
+        entry["branch"] = branch
+
     if synced:
         entry["last_synced_commit"] = current_head(str(resolved))
 
     save_local(local_data)
     ensure_ref_symlink(name, str(resolved))
     typer.echo(f"Set '{name}' local path to {resolved}")
+    if branch:
+        typer.echo(f"  Tracking branch: {branch}")
     if synced:
         typer.echo(f"  Marked as synced at {entry['last_synced_commit'][:8]}")
