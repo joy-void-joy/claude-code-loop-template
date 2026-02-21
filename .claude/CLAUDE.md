@@ -203,6 +203,27 @@ uv run pytest -k "test_name"       # Pattern match
 
 **Organization:** `tests/unit/` (mock external APIs), `tests/integration/` (require API keys, `@pytest.mark.integration`).
 
+### Test Principles
+
+**Test behavior, not construction.** Never test that a constructor sets attributes — that's testing the framework (Pydantic, dataclasses), not your code. If a class is a pure data container with no methods, computed properties, or custom validation, it doesn't need tests.
+
+**Every test should answer: "what could go wrong?"** If nothing can go wrong (e.g., `assert artifact.name == "solution.py"` after setting `name="solution.py"`), the test is worthless. Good tests exercise:
+
+- **State transitions** — does adding then removing leave the system clean?
+- **Edge cases** — empty inputs, missing files, duplicate names, boundary values
+- **Invariants** — properties that must hold across operations (e.g., cleanup stops all sandboxes)
+- **Integration points** — does the code read from disk correctly? Does it compose with its dependencies?
+
+**The test for a test:** Remove it. Does the remaining suite still catch real bugs? If yes, the test was dead weight.
+
+| Write Tests For | Don't Write Tests For |
+|---|---|
+| Computed properties that read from disk | Pydantic model construction |
+| Registry CRUD with state verification | Attribute access after `__init__` |
+| Error paths and graceful degradation | Default field values |
+| Multi-step workflows (add → use → remove) | Constants (`assert "Bash" in BUILTIN_TOOLS`) |
+| Concurrency and timing behavior | Sorted output of deterministic functions |
+
 ### Debugging
 
 **Do not hypothesize — trace.** Find actual logs, read the exact exception. Do not list "likely causes" or suggest the user check things. Open log files, grep for the error, read the traceback, report what actually happened. If logs lack info, say exactly what logging to add and where.
@@ -265,6 +286,14 @@ Worktrees typically branch from `dev`, but can also branch from other feature br
 6. `/lup:close` — Merge approved PR and clean up
 
 **Note:** The `worktrees/` and `refs/` directories are gitignored. `refs/` contains symlinks to downstream projects.
+
+### Merge Conflict Resolution
+
+**Never silently drop code during conflict resolution.** The bias is toward inclusion -- keeping both sides is always safer than losing features. A rename on one side must not swallow an addition on the other.
+
+Before completing any merge, **audit for deletions**: compare the result against both parents and verify that every removed function, parameter, or command was intentionally removed, not lost as a side effect of choosing one conflict side.
+
+Use `/lup:merge-conflict` for guided resolution. See the command for the full decision tree.
 
 ### Commit Guidelines
 

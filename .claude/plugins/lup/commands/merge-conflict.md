@@ -71,6 +71,10 @@ Resolve all merge conflicts in the working tree after a failed merge or rebase.
    # For a cherry-pick: git cherry-pick --continue
    ```
 
+## Core Principle: Bias Toward Inclusion
+
+**Never silently drop code.** When resolving conflicts, the default is to keep both sides. Deleting a function, feature, or parameter that exists on either side requires explicit justification. If you can't confidently explain *why* something should be removed, keep it.
+
 ## Resolution Decision Tree
 
 First classify each conflict hunk by **branch scope**, then resolve:
@@ -83,16 +87,19 @@ Using the branch scope summary from step 2, classify each conflict hunk:
 - **Out-of-scope** -- The conflict is in code this branch didn't intentionally modify (unrelated to any of the branch's purposes). **Take theirs** (MERGE_HEAD) -- the other branch has the more intentional changes here.
 - **Mixed / ambiguous** -- Both sides made intentional changes to the same code, or you can't confidently classify. Proceed to Step B.
 
+**Direction awareness:** The above assumes a typical feature-branch merge. In initialization or sync merges (pulling upstream into a new branch), the incoming side may be the richer one. Before classifying, verify which side has more content -- the side with more features/functions is the "authority" side. If "theirs" is richer, the default flips: out-of-scope hunks should take theirs, but in-scope hunks still need careful review.
+
 ### Step B: Resolve mixed/ambiguous conflicts
 
 For hunks that don't clearly fall into in-scope or out-of-scope:
 
 #### Auto-resolve (no user input needed)
 
-- **Non-overlapping additions** -- Both sides add different new content (imports, functions, config entries). Combine both.
+- **Non-overlapping additions** -- Both sides add different new content (imports, functions, config entries). **Combine both.**
 - **Clear superset** -- One side is a strict superset of the other. Take the superset.
 - **Whitespace / formatting only** -- Take either side consistently.
 - **Identical intent** -- Both sides made the same change with trivially different wording. Take either.
+- **Refactoring vs features** -- One side refactored (renamed, reorganized) while the other added new features. **Keep both** -- apply the refactoring AND the features. Never let a rename swallow an addition.
 
 #### Ask the user (use AskUserQuestion)
 
@@ -108,7 +115,28 @@ For hunks that don't clearly fall into in-scope or out-of-scope:
 - Suggest a recommendation if you have one
 - Offer "combine both" as an option when feasible
 
+## Deletion Audit (before completing the merge)
+
+After resolving all conflicts but **before staging and committing**, run a deletion audit:
+
+```bash
+# Compare the merge result against both parents to find dropped code
+# Functions/classes/commands that exist in EITHER parent but not in the result
+git diff HEAD -- <conflicted-files>      # what ours lost
+git diff MERGE_HEAD -- <conflicted-files> # what theirs lost
+```
+
+For each conflicted file, check: **did the resolution remove any functions, classes, CLI commands, or significant code blocks that existed on either side?** If yes, that deletion must be intentional and justified -- not a side effect of taking one side over the other.
+
+Common signs of accidental deletion:
+- An entire function/command at the end of a file that was on one side but not the other (conflict resolution took the shorter version)
+- Function parameters or CLI options that existed on one side but are absent in the resolution
+- Import statements dropped without the corresponding code being removed
+
+**If you find unjustified deletions, fix them before completing the merge.**
+
 ## General Guidelines
 
 - **Watch for semantic conflicts** -- Even after resolving textual conflicts, check that the combined code makes sense (e.g., a renamed variable on one side but old name used on the other)
 - **Check adjacent code** -- Sometimes conflicts reveal that nearby (non-conflicting) code also needs updating for consistency
+- **Err toward larger** -- When the two sides differ in size and you can't determine intent, keep the larger version. It's easier to remove unwanted code later than to recover lost code.

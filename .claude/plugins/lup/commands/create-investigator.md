@@ -26,8 +26,8 @@ Before writing anything, understand what this investigator needs to do:
    - `.claude/plugins/lup/commands/debug.md` — traces errors through logs
 
 2. **Explore the codebase** to understand the domain. Based on the description, identify:
-   - What kind of input will users typically paste? (tracebacks, agent reasoning, API responses, metrics, etc.)
-   - Where are the relevant logs and artifacts? (`logs/`, `notes/`, other directories)
+   - What specific content will appear in the pasted trace? (tool calls, thinking blocks, error messages, subagent output, etc.)
+   - Where are the relevant logs and artifacts on disk? (`logs/`, `notes/`, other directories)
    - What source code is most relevant? Which files in `src/` would the investigator need to read?
    - What devtools commands might be useful? (`uv run lup-devtools --help`)
 
@@ -42,7 +42,7 @@ Based on your exploration and the user's input, design the command. Existing inv
 
 **Philosophy**: "Don't hypothesize — trace." The command should guide you to find actual evidence, not speculate.
 
-**Input handling**: The input is raw pasted output. It may not contain metadata, IDs, or context. The command should explain how to work with incomplete input and what to extract from it.
+**Input handling**: The input is **always raw pasted output** via `$ARGUMENTS`. The user pastes trace logs, console output, error messages, or other raw text directly after the command. The command should never expect a file path, session ID, or structured input -- it works from whatever the user pastes. It should explain how to extract anchors (IDs, timestamps, tool names) from the pasted text and how to work with incomplete input.
 
 **Investigation steps**: Domain-specific steps that trace from the pasted input to root cause. Each step should explain:
 
