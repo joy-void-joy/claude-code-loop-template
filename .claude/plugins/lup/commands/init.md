@@ -18,15 +18,18 @@ Interview the user about their domain, rename the source package, and generate t
 Use AskUserQuestion to determine the project name:
 
 ### 1. Project Name
+
 - What should the project be called? This becomes the Python package name.
 - Must be a valid Python identifier (lowercase, underscores, no hyphens or spaces).
 - Examples: `aib`, `forecast_bot`, `coach`, `game_agent`
 
 ### 2. Agent Purpose
+
 - What does the agent do? (forecasting, coaching, game playing, task completion, etc.)
 - What is a "session" or "run"? (one forecast, one conversation, one game, one task)
 
 ### 3. Ground Truth & Success Metrics
+
 - How do you know if the agent did well?
   - **External ground truth**: Outcomes that resolve later (predictions, game wins, task success)
   - **Human feedback**: Ratings, corrections, preferences
@@ -35,11 +38,13 @@ Use AskUserQuestion to determine the project name:
   - **No clear ground truth**: Focus on process quality and trace analysis
 
 ### 4. What to Track
+
 - What outputs should be saved per session?
 - What metrics matter? (accuracy, cost, time, tool usage, user satisfaction)
 - What trace data is valuable? (reasoning, tool calls, intermediate states)
 
 ### 5. Feedback Sources
+
 - Where does feedback come from?
   - Resolution/outcome data
   - User ratings or corrections
@@ -48,6 +53,7 @@ Use AskUserQuestion to determine the project name:
   - Automated quality checks
 
 ### 6. Task Format
+
 - How are tasks provided to the agent? (free text, IDs, files, API calls)
 - Should the `loop` CLI command batch-process them?
 - What does auto-commit look like for this domain?
@@ -73,6 +79,7 @@ Rename `src/lup/` to `src/<project>/` where `<project>` is the name from Phase 1
 ### Steps:
 
 1. **Rename the directory**:
+
    ```bash
    git mv src/lup src/<project>
    ```
@@ -117,23 +124,30 @@ Rename `src/lup/` to `src/<project>/` where `<project>` is the name from Phase 1
 Based on the answers from Phase 1, generate or modify:
 
 ### 1. `src/<project>/agent/models.py`
+
 Customize AgentOutput for the domain:
+
 - Add domain-specific fields (probability, move, response, etc.)
 
 ### 2. `src/<project>/agent/prompts.py`
+
 Update the system prompt template for the domain. Focus on what the agent does and how to reason — tools self-document via their descriptions, so listing them in the prompt creates a second source of truth that drifts as tools change.
 
 ### 3. `src/<project>/agent/subagents.py`
+
 Create domain-appropriate subagents (researcher, analyzer, etc.)
 
 ### 4. `src/<project>/environment/cli/__main__.py`
+
 Customize the CLI for the domain's task format:
+
 - Update the `loop` command to accept domain-specific task inputs
 - Customize `_commit_results()` message format (e.g., `data(forecasts):` instead of `data(sessions):`)
 - Configure auto-commit behavior: enable/disable by default, target branch (main for data-only commits, or a dedicated branch)
 - Add domain-specific CLI commands if needed
 
 ### 5. `src/<project>/version.py`
+
 Set initial AGENT_VERSION and explain bump rules for this domain.
 
 ### 6. Configure Reflection
@@ -141,6 +155,7 @@ Set initial AGENT_VERSION and explain bump rules for this domain.
 Customize `src/<project>/agent/tools/reflect.py`:
 
 Ask the user:
+
 - Should the agent self-review before producing output? (default: yes — already wired in core.py)
 - Should there be a reviewer sub-agent? (default: yes, runs on Sonnet — adds latency but catches errors)
 - What domain-specific fields should reflection capture? (extend `ReflectInput` with fields like factor analysis, move evaluation, etc.)
@@ -149,10 +164,13 @@ Ask the user:
 The reflection gate (`lib/reflect.py`) is domain-neutral and doesn't need modification. Only the tool and its input model are domain-specific.
 
 ### 7. `feedback_collect.py`
+
 The main feedback collection script. Customize for the domain's ground truth type.
 
 ### 8. Update `CLAUDE.md`
+
 The CLAUDE.md should already have the template sections from the Phase 2 merge. Now add domain-specific content based on the interview answers:
+
 - Fill in the Project Overview placeholder with the domain description
 - Add domain-specific commands and examples
 - Add metrics and feedback collection instructions relevant to this domain
@@ -169,7 +187,9 @@ The agent discovers tools through their descriptions — a terse description mea
 See `src/<project>/agent/tools/example.py` for the pattern.
 
 ### 10. Update `feedback-loop.md`
+
 Customize the feedback loop command for the domain's specific:
+
 - Ground truth type
 - Metrics to analyze
 - Trace inspection approach

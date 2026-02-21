@@ -17,6 +17,7 @@ Import a specific pattern, feature, or approach from a tracked downstream reposi
 The first word is the **project name** (must match a tracked project in `downstream.json`). Everything after is the **pattern description** — a natural language description of what to import.
 
 **Examples:**
+
 - `/lup:import forecaster version reviewer pattern` — project is `forecaster`, pattern is "version reviewer pattern"
 - `/lup:import myapp lib/cache TTL invalidation` — project is `myapp`, pattern is "lib/cache TTL invalidation"
 
@@ -50,6 +51,7 @@ uv run lup-devtools sync log <project>
 Use the pattern description to locate relevant code. The downstream repo is accessible via `refs/<project>` (symlink created by sync tooling).
 
 Search strategy:
+
 - **Grep** for keywords from the pattern description across the downstream repo
 - **Glob** for file paths if the description mentions specific files or directories
 - **Read** promising matches to understand the full implementation
@@ -113,8 +115,8 @@ git commit -m "feat(<scope>): port <pattern> from <project>"
 
 ## Guidelines
 
-- **Generalize, don't copy** — The downstream code is domain-specific. Port the *pattern*, not the domain details.
-- **Preserve intent** — Understand *why* the downstream repo built this pattern, not just *what* it does. The adaptation should serve the same purpose.
+- **Generalize, don't copy** — The downstream code is domain-specific. Port the _pattern_, not the domain details.
+- **Preserve intent** — Understand _why_ the downstream repo built this pattern, not just _what_ it does. The adaptation should serve the same purpose.
 - **Check for existing work** — Before porting, search the current project for similar patterns that could be extended instead of duplicated.
 - **Minimal dependencies** — If the pattern pulls in new packages, flag this to the user and ask whether to proceed.
 - **Test after porting** — Always run pyright/ruff/pytest after applying changes.

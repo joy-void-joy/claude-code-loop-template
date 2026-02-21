@@ -12,6 +12,7 @@ The feedback loop operates at three levels. Be clear about which level you're wo
 3. **Meta-Meta Level** - This feedback loop process: the scripts, the analysis methods, this document itself
 
 **Clarification**:
+
 - Object level = "How can the agent perform better?" (tools, APIs, reasoning)
 - Meta level = "How can the agent track its own performance better?" (meta-reflection prompts, metrics formats)
 - Meta-meta level = "How can this feedback loop work better?" (feedback_collect.py, this document, analysis workflows)
@@ -19,6 +20,7 @@ The feedback loop operates at three levels. Be clear about which level you're wo
 **IMPORTANT: Every feedback loop session should span all three levels thoroughly.**
 
 Don't stop after finding object-level improvements. Ask yourself:
+
 - Did I check if the agent's self-tracking is sufficient? (meta)
 - Did I update this document with what I learned? (meta-meta)
 - Are there scripts that would make next session easier? (meta-meta)
@@ -29,12 +31,12 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 
 **Tools are the highest-leverage change you can make.** A tool that provides the right data at the right time is worth more than any amount of prompt engineering. When the agent struggles, the answer is almost always a missing tool — not a missing prompt paragraph.
 
-| Prefer | Over |
-|--------|------|
-| Tools that provide data | Prompt rules that constrain behavior |
-| General principles | Specific pattern patches |
-| State/context via tools | F-string prompt engineering |
-| Subagents for specialized work | Complex pipelines in main agent |
+| Prefer                         | Over                                 |
+| ------------------------------ | ------------------------------------ |
+| Tools that provide data        | Prompt rules that constrain behavior |
+| General principles             | Specific pattern patches             |
+| State/context via tools        | F-string prompt engineering          |
+| Subagents for specialized work | Complex pipelines in main agent      |
 
 **The test**: Would this change still help if the domain shifted completely? General principles yes, specific patches no.
 
@@ -43,11 +45,13 @@ A good feedback loop session produces changes at multiple levels. If you only ma
 **The description is the contract.** When the agent misuses a tool or ignores one it should use, the description is usually the problem. A good description answers what the tool does, when to reach for it, and why it exists — so the agent can match its situation to the tool without prompt-level instructions.
 
 **Clarification**: The bitter lesson does NOT mean never modifying prompts. It's fine to add:
+
 - General guidance for categories of tasks
 - Principles that help reasoning
 - Structural guidance for output formats
 
 What to AVOID:
+
 - Specific numeric patches ("always subtract 10% from initial estimate")
 - Rules that hard-code observations from specific sessions
 - Listing tools in the prompt (creates a second source of truth that drifts)
@@ -66,6 +70,7 @@ cat notes/feedback_loop/*_analysis.md | tail -50
 ```
 
 Read the most recent `*_analysis.md` file. Understand:
+
 - What problems were already identified and fixed
 - What sessions were already analyzed
 - What changes were already made
@@ -87,11 +92,13 @@ uv run lup-devtools feedback collect --all-time
 **Always scope analysis to the current agent version.** Different versions have different prompts, tools, and subagent configurations. Mixing data across versions produces meaningless aggregate statistics. Use `read_scores_for_version()` or filter `notes/scores.csv` by the `agent_version` column.
 
 **If you have outcome data**: Focus on accuracy/success metrics. This is the REAL signal.
+
 - Which sessions performed worst? Read their traces.
 - Are there systematic patterns in errors?
 - **Compare across versions** to see if recent changes helped or hurt.
 
 **If you have NO outcomes yet**: You're flying blind on accuracy. Focus on:
+
 - Process quality (is the agent reasoning well?)
 - Tool failures (what's blocking the agent?)
 - Do NOT treat proxy metrics as evidence of error without validation
@@ -100,13 +107,13 @@ uv run lup-devtools feedback collect --all-time
 
 Different domains have different ground truth:
 
-| Domain | Ground Truth | Proxy Signal |
-|--------|-------------|--------------|
-| Forecasting | Resolution outcomes | Community prediction |
-| Coaching | User outcomes/ratings | Session engagement |
-| Game playing | Win/loss | Move quality scores |
-| Task completion | Task success | Time to completion |
-| Content generation | User satisfaction | Automated quality scores |
+| Domain             | Ground Truth          | Proxy Signal             |
+| ------------------ | --------------------- | ------------------------ |
+| Forecasting        | Resolution outcomes   | Community prediction     |
+| Coaching           | User outcomes/ratings | Session engagement       |
+| Game playing       | Win/loss              | Move quality scores      |
+| Task completion    | Task success          | Time to completion       |
+| Content generation | User satisfaction     | Automated quality scores |
 
 **Be honest about what you can and cannot measure.**
 
@@ -127,6 +134,7 @@ aggregate statistics.
    issue — do not silently include unversioned data in current-version metrics
 
 **Use scores.csv to find best/worst sessions for deep trace reading:**
+
 ```bash
 # Read scores and filter by version (customize for your domain)
 uv run lup-devtools metrics summary
@@ -167,12 +175,14 @@ Return the standard pattern report.
 ```
 
 **What to include in the prompt:**
+
 - Session IDs to analyze (from scores.csv extremes, or all recent sessions)
 - Current agent version (so the explorer can filter)
 - Any specific focus areas from Phase 1 findings
 - Known issues from the previous feedback session (Phase 0)
 
 **What you get back:**
+
 - Tool failure patterns (aggregated across all traces)
 - Capability requests (what the agent asked for)
 - Reasoning patterns and quality issues
@@ -219,6 +229,7 @@ Evaluate whether this feedback loop is finding the right things to improve.
 ### 3a. Did the Analysis Surface Actionable Insights?
 
 Ask yourself:
+
 - Did I find specific tools to fix or build?
 - Did I identify concrete capability gaps?
 - Did the analysis lead to clear next steps?
@@ -228,6 +239,7 @@ If the analysis felt circular or unproductive, the meta-process needs improvemen
 ### 3b. Evaluate Tracking Data Quality
 
 Check if the data we collect is sufficient for analysis:
+
 - Are sessions linked to their reasoning traces?
 - Can we correlate tool usage with session quality?
 - Do we have outcome data to evaluate accuracy?
@@ -240,6 +252,7 @@ uv run lup-devtools trace list
 ### 3c. Identify Missing Data
 
 Common gaps:
+
 - **No outcome data** → Can't evaluate accuracy, only process
 - **No tool-to-session linkage** → Can't identify which tools help
 - **No category tagging** → Can't identify patterns by type
@@ -260,6 +273,7 @@ rewrite rather than another incremental patch.
 **When to rewrite vs patch:**
 
 A full rewrite is warranted when:
+
 - Sections read as addendums rather than integrated guidance (conditional exceptions, "if X fails, do Y" patches)
 - The same task type has been patched 3+ times across sessions
 - Best-performing traces succeed despite the prompt, not because of it
@@ -267,6 +281,7 @@ A full rewrite is warranted when:
 - The prompt has grown >20% since the last rewrite without corresponding improvement
 
 **How to do a principled rewrite:**
+
 1. **Study the best-performing traces.** Read the full reasoning for the top 5-10 sessions. What patterns do they follow? What decisions led to success?
 2. **Study the worst-performing traces.** Same process for the bottom 5-10. What went wrong — capability gap or reasoning error the prompt could have prevented?
 3. **Read the full current prompt** (`src/lup/agent/prompts.py`). Identify sections that feel patched, redundant, or irrelevant.
@@ -274,6 +289,7 @@ A full rewrite is warranted when:
 5. **Ensure monolithic coherence.** The result must read as a single authored document — no references to "previous behavior," no "Exception:" patches, no "Note: as of version X."
 
 **When NOT to rewrite:**
+
 - If you found only 1-2 clear bugs or gaps, a targeted patch is better
 - If the prompt's structure is sound and only needs a new principle or tool reference
 - If there isn't enough data (< 20 sessions with outcomes) to identify structural issues
@@ -297,6 +313,7 @@ Good tool descriptions answer what/when/why — this helps the agent self-select
 ### Priority 3: Improve Tool Descriptions
 
 Before changing prompts, check if the issue is a tool description problem:
+
 - Is the agent using the wrong tool? → Clarify the "when" in the description.
 - Is the agent not using a tool at all? → Add stronger "when to use" triggers.
 - Is the agent misinterpreting results? → Document the return format.
@@ -304,6 +321,7 @@ Before changing prompts, check if the issue is a tool description problem:
 ### Priority 4: Improve Subagents
 
 If subagents aren't used:
+
 - Are they providing unique value?
 - Are they too expensive (time/compute)?
 - Should they be lighter/faster?
@@ -311,11 +329,13 @@ If subagents aren't used:
 ### Priority 5: Simplify Prompts (Not Add Rules)
 
 For incremental prompt changes (when Priority 0 determined a full rewrite isn't needed):
+
 - ADD general principles that help across domains
 - REMOVE prescriptive rules that add complexity
 - PREFER "use tool X for Y" over "when pattern P, do Q"
 
 **Do NOT add**:
+
 - Specific rules for specific task types (over-fitted, won't generalize)
 - Numeric adjustments ("always add 10% margin") (will become stale)
 - Patches for observed patterns (treat symptoms, not causes)
@@ -342,6 +362,7 @@ This phase is about improving the feedback loop infrastructure itself.
 ### 5a. Was This Document Helpful?
 
 Ask:
+
 - Did the phases guide you to useful insights?
 - Was any guidance outdated or confusing?
 - Did you have to improvise steps not documented here?
@@ -355,6 +376,7 @@ If you found yourself doing repetitive analysis, automate it by adding a command
 ### 5c. Improve Data Collection
 
 If the feedback loop lacked data, fix the source:
+
 - Add fields to session output schema
 - Update the agent to emit more tracking data
 - Add scripts to collect missing metrics
@@ -362,6 +384,7 @@ If the feedback loop lacked data, fix the source:
 ### 5d. Update This Document
 
 Every session should leave this document better:
+
 - Remove outdated guidance
 - Add new scripts to the reference section
 - Clarify confusing terminology
@@ -370,6 +393,7 @@ Every session should leave this document better:
 ## Anti-Patterns to Avoid
 
 ### DON'T: Patch prompts for observed patterns
+
 ❌ "When doing X, always subtract 10%"
 ❌ "For Y tasks, cap confidence at 70%"
 ❌ Adding "Exception:" clauses to existing rules
@@ -379,21 +403,25 @@ Every session should leave this document better:
 ✅ When patches accumulate, rewrite the section from scratch (Priority 0)
 
 ### DON'T: Over-rely on proxy metrics
+
 ❌ "Large divergence from baseline means we're wrong"
 ✅ Wait for outcome data to know if divergence correlates with error
 ✅ Use proxy metrics to understand WHERE reasoning differs, not WHETHER it's wrong
 
 ### DON'T: Add rules the agent can't act on
+
 ❌ "Adjust based on X" (if agent can't see X)
 ✅ Provide tools that give the agent actionable information
 
 ### DON'T: List tools in prompts or write terse descriptions
+
 ❌ "## Tools Available\n- **WebSearch**: Search the web"
 ❌ Tool description: "Search for information"
 ✅ Let the agent discover tools through comprehensive descriptions
 ✅ Tool description: "Search for X using Y. Use when Z. Exists because W. Returns {format}."
 
 ### DON'T: Skip reading traces
+
 ❌ Jump to aggregate statistics
 ✅ Read 5-10 traces deeply first
 ✅ Understand what actually happened in individual sessions
@@ -406,6 +434,7 @@ Write to `notes/feedback_loop/<timestamp>_analysis.md`:
 # Feedback Loop Analysis: YYYY-MM-DD
 
 ## Ground Truth Status
+
 - Agent version analyzed: X.Y.Z
 - Sessions with outcomes: N
 - Average success metric: X.XX (or "none yet - process analysis only")
@@ -413,20 +442,24 @@ Write to `notes/feedback_loop/<timestamp>_analysis.md`:
 ## Object-Level Findings
 
 ### Tool Failures
+
 | Tool | Failure | Count | Fix |
-|------|---------|-------|-----|
-| ... | ... | N | ... |
+| ---- | ------- | ----- | --- |
+| ...  | ...     | N     | ... |
 
 ### Agent Capability Requests
+
 - "Would benefit from X" → [action taken]
 - "Tool Y failed" → [action taken]
 
 ### Reasoning Quality Assessment
+
 - [For 3-5 sessions, brief assessment of reasoning soundness]
 
 ## Meta-Level Findings (Analysis Process)
 
 ### Was This Analysis Productive?
+
 - Did it surface actionable insights? [yes/no]
 - What data was missing?
 - What would have made analysis easier?
@@ -434,22 +467,27 @@ Write to `notes/feedback_loop/<timestamp>_analysis.md`:
 ## Meta-Meta Findings (Feedback Loop Infrastructure)
 
 ### Updates to This Document
+
 - [Changes made to feedback-loop.md]
 
 ### Scripts Created/Updated
+
 - [New scripts added]
 
 ### Data Collection Improvements
+
 - [Changes to tracking, metrics, etc.]
 
 ## Changes Made
-| Level | Change | Rationale |
-|-------|--------|-----------|
-| Object | Added X tool | Agent requested it in N traces |
-| Meta | Improved analysis queries | Was missing Y data |
-| Meta-Meta | Updated feedback-loop.md | Clarified Z section |
+
+| Level     | Change                    | Rationale                      |
+| --------- | ------------------------- | ------------------------------ |
+| Object    | Added X tool              | Agent requested it in N traces |
+| Meta      | Improved analysis queries | Was missing Y data             |
+| Meta-Meta | Updated feedback-loop.md  | Clarified Z section            |
 
 ## Evaluation Queue
+
 uv run python -m lup.environment.cli loop <session commands>
 ```
 
@@ -499,6 +537,7 @@ Every few feedback loop sessions, take time to:
 ### Why This Is Last
 
 Each feedback loop session should:
+
 1. Analyze existing sessions (Phases 1-2)
 2. Make improvements based on findings (Phase 4)
 3. Queue NEW sessions that will test whether those improvements helped
@@ -506,6 +545,7 @@ Each feedback loop session should:
 ### Selection Criteria
 
 Choose sessions that:
+
 - Are diverse in task type (cover different capabilities)
 - Would test the agent's reasoning on challenging topics
 - Exercise recently fixed or newly added tools
@@ -524,6 +564,7 @@ uv run python -m lup.environment.cli loop "task1" "task2" "task3"
 ### Feedback Cycle
 
 The user runs the sessions, then the next feedback loop session:
+
 1. Collects those results in Phase 1
 2. Evaluates quality against the improvements made
 3. Queues more sessions → repeat

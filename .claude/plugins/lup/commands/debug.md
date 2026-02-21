@@ -30,6 +30,7 @@ If the error text is too long for a single grep, extract the most distinctive ph
 If multiple log files match, identify the **most recent** one (logs are named by timestamp: `YYYYMMDD-HHMMSS.log` or `YYYYMMDD_HHMMSS.log`).
 
 If no matches found in `logs/`:
+
 - Try `notes/sessions/` for meta-reflections mentioning the error
 - Try broader search terms (exception class name, HTTP status code)
 - If still nothing: report exactly what was searched and that no logs contain this error. State what logging would need to be added and where.
@@ -47,17 +48,21 @@ Once you find the log file containing the error:
 Structure your report as:
 
 **What happened:**
+
 - The exact exception/error (quote the traceback)
 - Which file and line in the source code
 
 **Why it happened:**
+
 - What the agent was doing at the time (from the log context)
 - The chain of events that led to the error
 
 **How to fix it:**
+
 - Specific code changes needed (show the code, point to the file and line)
 
 **If logs are insufficient:**
+
 - State exactly what logging to add and where, so the error is captured next time
 - Be specific: "Add `logger.exception(...)` at `src/lup/agent/core.py:42` inside the `except` block"
 

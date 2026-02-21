@@ -12,7 +12,7 @@ Clean up the commit history on the current feature branch, push it, and open (or
 
 ### Base branch (`<base>`)
 
-Auto-detect the base branch -- the branch this feature branch diverged from. For each local branch, find the merge-base with HEAD; the branch whose merge-base is closest to HEAD (fewest commits between merge-base and HEAD) is the parent. Exclude the current branch itself.
+Auto-detect the base branch — the branch this feature branch diverged from. For each local branch, find the merge-base with HEAD; the branch whose merge-base is closest to HEAD (fewest commits between merge-base and HEAD) is the parent. Exclude the current branch itself.
 
 If auto-detection is ambiguous or no clear parent is found, use `AskUserQuestion` to ask which branch to use as base.
 
@@ -30,6 +30,7 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
    Check if `.claude/settings.local.json` exists. If it does, review it and merge all sensible settings into `.claude/settings.json` — including permissions (allow/deny/ask rules), auto-accept patterns, and any other configuration that would benefit all contributors. Skip anything user-specific (e.g., personal paths, tokens). Commit the settings update as a separate commit.
 
 2. **Merge `<base>` into feature branch**:
+
    ```bash
    # Update local <base> and merge into feature branch
    cd ../<base>
@@ -38,15 +39,18 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
    cd -
    git merge <base>
    ```
+
    Resolve any merge conflicts before proceeding. This ensures the branch is up-to-date.
 
 3. **Run all checks**:
+
    ```bash
    uv run pyright
    uv run ruff check .
    uv run ruff format --check .
    uv run pytest
    ```
+
    Fix any issues found. The rebased branch should only contain passing code.
 
 4. **Read PLAN.md** (if it exists):
@@ -60,27 +64,32 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
 ## Process
 
 1. **Sync `<base>` with remote**:
+
    ```bash
    cd ../<base>
    git pull
    git push
    cd -
    ```
+
    Ensure local `<base>` is up-to-date before rebasing.
 
 2. **Push and open PR** (if not already open):
 
    Push the feature branch:
+
    ```bash
    git push -u origin <branch>
    ```
 
    Check if a PR already exists:
+
    ```bash
    gh pr list --head "<branch>" --base "<target>" --state open --json number,url
    ```
 
    **If no PR exists** (first run):
+
    ```bash
    gh pr create --base "<target>" --title "<conventional commit style title>" --body "$(cat <<'EOF'
    ## Summary
@@ -104,6 +113,7 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
 5. **Reset and rebuild commits**:
 
    Reset all commits back to staged changes:
+
    ```bash
    git reset --soft <base>
    ```
@@ -115,11 +125,13 @@ Before starting the rebase, ensure the branch is clean and passing all checks.
    - Use conventional commit format: `feat:`, `fix:`, `refactor:`, `docs:`, `test:`, `chore:`
 
 6. **Force push to update the PR**:
+
    ```bash
    git push --force
    ```
 
    Return the PR URL to the user when done. Include a commit list in the PR body:
+
    ```bash
    gh pr edit <PR_NUMBER> --body "$(cat <<'EOF'
    ## Summary

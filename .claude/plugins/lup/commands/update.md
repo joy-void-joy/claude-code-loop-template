@@ -69,7 +69,7 @@ Classify as:
   - Build/config improvements that generalize
   - **CLAUDE.md improvements** (coding standards, workflow tips, new guidelines)
 
-- **Portable as scaffold**: Domain-specific implementations that represent a generalizable *pattern*. These get ported with domain details replaced by template placeholders.
+- **Portable as scaffold**: Domain-specific implementations that represent a generalizable _pattern_. These get ported with domain details replaced by template placeholders.
   - **New agents/subagents** — A "version-reviewer" that uses Brier scores becomes a scaffold version-reviewer that uses generic outcome metrics. A "forecast reviewer" sub-agent becomes a generic "reviewer" scaffold that critiques agent output.
   - **New tools or tool patterns** — A domain-specific reflection tool becomes a scaffold for structured self-assessment tools. A tool that calls a sub-agent internally is a reusable pattern.
   - **New commands** — A "leak-investigator" for retrodiction becomes a scaffold for investigator-style commands

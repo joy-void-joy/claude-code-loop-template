@@ -17,10 +17,12 @@ The user wants to MODIFY an existing slash command. Parse the arguments to deter
 The first word is the **command name** to modify. Everything after is the **delta** (what to change) or a **new description** (replace the command's behavior entirely), with an optional `--args` flag.
 
 **Basic:** `/lup:modify-command commit Add a step that runs ruff format before committing`
+
 - Command name: `commit`
 - Delta: "Add a step that runs ruff format before committing"
 
 **With args:** `/lup:modify-command debug Add verbose flag --args [error] [--verbose]`
+
 - Command name: `debug`
 - Delta: "Add verbose flag"
 - New argument hints: `[error] [--verbose]`
@@ -30,6 +32,7 @@ When `--args` is provided, update the command's `argument-hint` frontmatter to t
 ### If No Arguments Provided
 
 If `$ARGUMENTS` is empty, ask the user:
+
 - Which command should be modified?
 - What changes should be made?
 

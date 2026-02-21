@@ -10,6 +10,7 @@ Update CLAUDE.md and other documentation based on learnings from this session.
 ## Your Task
 
 Review the current session and update documentation to reflect:
+
 - New patterns discovered
 - Corrections to existing guidance
 - New commands or workflows
@@ -29,6 +30,7 @@ Review the current session and update documentation to reflect:
 Look for opportunities to update:
 
 ### CLAUDE.md sections:
+
 - **Project Overview**: Has the scope changed?
 - **Reference Files**: Are there new important files?
 - **Commands**: Any new commands to document?
@@ -36,6 +38,7 @@ Look for opportunities to update:
 - **Anti-patterns**: Mistakes to avoid in the future?
 
 ### Other docs:
+
 - **README.md**: User-facing changes?
 - **Command files**: Need updates to existing commands?
 
@@ -51,6 +54,7 @@ Use AskUserQuestion to propose specific updates:
 ## Phase 4: Apply Updates
 
 For each approved change:
+
 1. Use Edit to make the change
 2. Show the result
 3. Confirm with the user
@@ -65,17 +69,22 @@ For each approved change:
 ## Example Updates
 
 ### Good update:
+
 ```markdown
 # Before
+
 Use `uv run forecast test` to run tests.
 
 # After
+
 Use `uv run pytest` to run tests. Use `-k pattern` to filter.
 ```
 
 ### Bad update (don't do this):
+
 ```markdown
 # Don't add temporal markers
+
 Use `uv run pytest` to run tests. (Updated Feb 2026 to fix command)
 ```
 

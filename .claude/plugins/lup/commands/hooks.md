@@ -15,11 +15,11 @@ $ARGUMENTS
 
 The configurable hooks live in `.claude/plugins/lup/hooks/scripts/`:
 
-| File | Controls | Configurable Parts |
-|---|---|---|
-| `auto_allow_bash.py` | Bash commands | `RULES` list of `Allow`/`Deny` (last-match-wins) |
-| `auto_allow_fetch.py` | WebFetch URLs | `ALLOW_PATTERNS` (list of regex), `DENY_PATTERNS` (list of (regex, reason) tuples) |
-| `auto_allow_edits.py` | Edit operations | `PROTECTED_PATTERNS` (list of regex), `MAX_REAL_CHANGES` (int) |
+| File                  | Controls        | Configurable Parts                                                                 |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| `auto_allow_bash.py`  | Bash commands   | `RULES` list of `Allow`/`Deny` (last-match-wins)                                   |
+| `auto_allow_fetch.py` | WebFetch URLs   | `ALLOW_PATTERNS` (list of regex), `DENY_PATTERNS` (list of (regex, reason) tuples) |
+| `auto_allow_edits.py` | Edit operations | `PROTECTED_PATTERNS` (list of regex), `MAX_REAL_CHANGES` (int)                     |
 
 Other hooks (`pre_push_check.py`, `check_plan_md.py`, `protect_tests.py`) are structural and not managed here.
 
@@ -75,13 +75,16 @@ User says: "remove the pypi allow pattern"
 If `$ARGUMENTS` is empty, read all 3 hook files and present a summary of current configuration using this format:
 
 ### Bash (auto_allow_bash.py)
+
 **Rules:** (list Allow/Deny rules in order)
 
 ### Fetch (auto_allow_fetch.py)
+
 **Auto-allow:** (list patterns)
 **Deny:** (list patterns with reasons)
 
 ### Edits (auto_allow_edits.py)
+
 **Protected files:** (list patterns)
 **Max real changes:** N
 

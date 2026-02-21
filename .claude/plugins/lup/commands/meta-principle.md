@@ -27,6 +27,7 @@ Before auditing files, articulate the principle precisely:
 3. **Check generality** — would this principle still apply if the domain changed completely? If not, it may be too specific.
 
 Use AskUserQuestion to confirm the formulation with the user before proceeding. Show:
+
 - The principle statement
 - A "Do This / Not This" table (like the Bitter Lesson table in CLAUDE.md)
 - 2-3 concrete examples of the principle in action
@@ -95,17 +96,20 @@ Present findings and proposed changes one layer at a time. For each layer:
 ### Layer order:
 
 **Group 1: CLAUDE.md + TEMPLATE_CLAUDE.md**
+
 - CLAUDE.md is the source of truth. Changes here set the direction for everything else.
 - Consider: new section, additions to existing sections, anti-pattern entries, removal of contradictions.
 - Mirror relevant changes into TEMPLATE_CLAUDE.md so new projects inherit the principle.
 - Keep template sections general — domain-specific details belong in CLAUDE.md only.
 
 **Group 2: Command files**
+
 - Update commands whose workflows should reflect the principle.
 - Add the principle to relevant "Guidelines" or "Anti-Patterns" sections.
 - Don't add the principle to every command — only where it's relevant to that command's workflow.
 
 **Group 3: Code template (src/)**
+
 - This is where the principle becomes tangible. The code IS the example.
 - Agent orchestration (`core.py`, `subagents.py`) — does the structure reflect the principle?
 - Prompts (`prompts.py`) — does the SDK agent's system prompt embody the principle?
@@ -114,11 +118,13 @@ Present findings and proposed changes one layer at a time. For each layer:
 - Consider: refactoring patterns, adding/removing code, changing defaults, updating examples.
 
 **Group 4: Hook scripts & enforcement**
+
 - If the principle can be mechanically enforced, propose a hook.
 - If an existing hook contradicts the principle, propose modifications.
 - Not every principle needs a hook — only propose one if mechanical enforcement makes sense.
 
 **Group 5: Devtools & automation** (`src/lup/devtools/`)
+
 - Do the devtools commands (feedback, trace, metrics, git, sync) reflect the principle?
 - Are there devtools commands that should exist to support the principle but don't?
 

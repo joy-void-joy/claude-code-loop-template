@@ -13,6 +13,7 @@ Resolve all merge conflicts in the working tree after a failed merge or rebase.
 ## Process
 
 1. **Assess the situation**:
+
    ```bash
    # Determine if we're in a merge, rebase, or cherry-pick
    git status
@@ -48,6 +49,7 @@ Resolve all merge conflicts in the working tree after a failed merge or rebase.
    - Check for duplicate imports, repeated function definitions, or other merge artifacts
 
 5. **Stage and verify**:
+
    ```bash
    # Stage resolved files
    git add <resolved-files>
@@ -60,6 +62,7 @@ Resolve all merge conflicts in the working tree after a failed merge or rebase.
    ```
 
 6. **Complete the merge** (only if all conflicts are resolved):
+
    ```bash
    # For a merge:
    git commit --no-edit
@@ -99,6 +102,7 @@ For hunks that don't clearly fall into in-scope or out-of-scope:
 - **Ambiguous priority** -- When you genuinely can't tell which version is better or more complete without domain knowledge the user has.
 
 **When asking, always:**
+
 - **Show the exact conflict** -- Before the AskUserQuestion call, output both versions as labeled code blocks so the user can read the actual content
 - Explain what each side was trying to do
 - Suggest a recommendation if you have one

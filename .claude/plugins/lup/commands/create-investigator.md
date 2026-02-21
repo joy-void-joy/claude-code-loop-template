@@ -45,6 +45,7 @@ Based on your exploration and the user's input, design the command. Existing inv
 **Input handling**: The input is raw pasted output. It may not contain metadata, IDs, or context. The command should explain how to work with incomplete input and what to extract from it.
 
 **Investigation steps**: Domain-specific steps that trace from the pasted input to root cause. Each step should explain:
+
 - What to look for
 - Where to look (specific directories, files, scripts)
 - What tools/commands to use
@@ -59,6 +60,7 @@ Based on your exploration and the user's input, design the command. Existing inv
 Write the command file to `.claude/plugins/lup/commands/<command-name>.md`.
 
 **Frontmatter**: Choose `allowed-tools` based on what the investigator needs. Common choices:
+
 - `Read, Grep, Glob` — always needed for code/log exploration
 - `Bash(ls:*, wc:*, sort:*, tail:*, stat:*)` — for listing and sizing files
 - `Bash(uv run lup-devtools:*)` — if the command needs devtools scripts

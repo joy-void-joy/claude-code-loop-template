@@ -73,6 +73,7 @@ Then warn the user that their current worktree corresponds to the now-merged bra
 ### 6. Report
 
 Summarize what was done:
+
 - PR merged (with link)
 - Branch deleted (local + remote)
 - Remaining cleanup needed (worktree removal if applicable)

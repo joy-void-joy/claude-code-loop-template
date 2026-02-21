@@ -32,6 +32,7 @@ Using the latest version tag (e.g., `v1.1.0`):
 - Run `git diff --stat <tag>..HEAD` to see which files changed
 
 If no version tag exists, use the commit that last modified `src/lup/version.py`:
+
 - `git log -1 --format=%H -- src/lup/version.py`
 
 ### 3. Classify changes
@@ -48,11 +49,11 @@ If there are NO behavior changes since the last bump, inform the user and stop â
 
 Apply the bump rules from `src/lup/version.py`:
 
-| Level | When | Examples |
-|-------|------|----------|
-| **patch** | Bug fixes, config tweaks, tool fixes | Fixed API error handling, adjusted timeout |
+| Level     | When                                          | Examples                                     |
+| --------- | --------------------------------------------- | -------------------------------------------- |
+| **patch** | Bug fixes, config tweaks, tool fixes          | Fixed API error handling, adjusted timeout   |
 | **minor** | Prompt changes, new tools, tool modifications | Added web search tool, rewrote system prompt |
-| **major** | Architecture changes | New LLM, new framework, fundamental redesign |
+| **major** | Architecture changes                          | New LLM, new framework, fundamental redesign |
 
 If the user provided a level in `$ARGUMENTS`, use it. Otherwise, recommend a level based on the changes and confirm with `AskUserQuestion`.
 

@@ -24,6 +24,7 @@ If `$ARGUMENTS` is empty, use defaults: target=`..`, non-interactive.
 Inventory what the lup plugin offers. Read these key files in the **current** repo (`.`):
 
 ### Plugin Structure
+
 - `.claude/plugins/lup/.claude-plugin/plugin.json` — plugin identity
 - `.claude/plugins/lup/hooks/hooks.json` — hook definitions
 - `.claude/plugins/lup/hooks/scripts/*.py` — permission hooks (auto_allow_bash, auto_allow_edits, auto_allow_fetch, pre_push_check, check_plan_md, protect_tests)
@@ -32,11 +33,14 @@ Inventory what the lup plugin offers. Read these key files in the **current** re
 - `.claude/plugins/lup/TEMPLATE_CLAUDE.md` — CLAUDE.md template
 
 ### Reusable Library Code
+
 - `src/lup/lib/` — utilities (trace, hooks, metrics, scoring, cache, retry, notes, mcp, responses, history)
 - `src/lup/version.py` — version tracking pattern
 
 ### DevTools CLI
+
 The `lup-devtools` CLI (`src/lup/devtools/`) gives Claude Code structured commands for development tasks that would otherwise require ad-hoc bash one-liners. Without it, Claude resorts to `python -c "..."` snippets or manual shell pipelines for trace analysis, feedback collection, and session management — which are fragile and unrepeatable. The devtools encode these workflows as proper CLI commands with argument parsing, output formatting, and error handling.
+
 - `src/lup/devtools/main.py` — root typer app composing sub-apps (entry point: `lup-devtools`)
   - `api.py` — API inspection, module info
   - `dev.py` — worktree management
@@ -48,6 +52,7 @@ The `lup-devtools` CLI (`src/lup/devtools/`) gives Claude Code structured comman
   - `metrics.py` — aggregate metrics
 
 ### Configuration Patterns
+
 - `.claude/settings.json` — settings structure
 - `downstream.json` — upstream sync tracking
 
@@ -73,6 +78,7 @@ Read the target repo to understand its structure:
 7. **Code conventions**: What patterns does the repo follow? Type checking? Linting?
 
 **Key questions to answer:**
+
 - What language/ecosystem is the target? (This determines which library utilities are portable)
 - Does it already have a `.claude/` setup that we'd be extending vs. creating from scratch?
 - What existing conventions must be respected?
@@ -82,7 +88,9 @@ Read the target repo to understand its structure:
 Based on the analysis, classify each lup capability as:
 
 ### Always Portable (language-agnostic)
+
 These work in any repo:
+
 - **Plugin infrastructure**: The `.claude/plugins/lup/` directory structure itself
 - **Permission hooks**: auto_allow_bash (adapt patterns), auto_allow_edits (adapt for target's file types), auto_allow_fetch (adapt URL patterns)
 - **Pre-push quality gates**: Adapt to target's linter/type-checker/test runner
@@ -91,13 +99,17 @@ These work in any repo:
 - **Settings patterns**: permission structure in settings.json
 
 ### Portable if Python
+
 These port well to other Python projects:
+
 - **Library utilities**: hook composition, version tracking, retry, cache
 - **DevTools CLI**: The `lup-devtools` typer app structure — `main.py` composing sub-apps, `pyproject.toml` entry point. Even if the target doesn't need every subcommand, the skeleton (api, dev, git, sync) gives Claude Code reliable tooling instead of ad-hoc scripts.
 - **Upstream sync**: downstream.json + sync commands (`lup-devtools sync`)
 
 ### Portable if Agent SDK
+
 If the target repo uses (or will use) the Claude Agent SDK, the **self-improvement loop scaffolding** is the core value of lup — these are high-priority to port:
+
 - **Agent scaffolding**: core.py pattern (orchestration), subagents.py, models.py (structured output), prompts.py, tool_policy.py, config.py (pydantic-settings)
 - **Feedback loop**: feedback collection, trace analysis, metrics aggregation, scoring CSV
 - **Session management**: CLI with `run` + `loop` commands, auto-commit, session storage
@@ -109,6 +121,7 @@ If the target repo uses (or will use) the Claude Agent SDK, the **self-improveme
 When the target has Agent SDK code, adapt the scaffolding to wrap their existing agent — don't replace it. The lup patterns (trace logging, scoring, feedback collection) layer on top of whatever agent they already have.
 
 ### Skip (never port)
+
 - Domain-specific tool implementations (example.py contents)
 - Domain-specific prompt content
 - Domain-specific model fields (but port the pattern/structure)
@@ -158,6 +171,7 @@ Be conservative — only install what clearly adds value. Typical candidates (bu
 - **If Agent SDK detected**: Also install the self-improvement scaffolding — this is lup's core value. The feedback loop commands, lib utilities (trace, scoring, metrics, hooks, version), devtools CLI pattern, session/trace directory structure, downstream.json for sync. Adapt to layer on top of the target's existing agent, not replace it.
 
 **Constraints** in non-interactive mode:
+
 - Don't rewrite existing CLAUDE.md content or change existing hooks/commands
 - Don't install anything requiring new dependencies (suggest them in the report)
 - Don't modify existing source code files (only create new files)
@@ -166,7 +180,7 @@ Be conservative — only install what clearly adds value. Typical candidates (bu
 
 Use AskUserQuestion at decision points where the user's input matters — don't ask about things you can decide confidently from the analysis, and don't enumerate every file individually.
 
-Group decisions at meaningful levels. Examples of the *kinds* of things to surface:
+Group decisions at meaningful levels. Examples of the _kinds_ of things to surface:
 
 - Plugin strategy (own plugin vs merge) when the target already has plugins
 - Which capability categories to install when the target could use some but not all

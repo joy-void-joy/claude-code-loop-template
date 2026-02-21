@@ -19,6 +19,7 @@ Help the user create a new slash command. Commands are markdown files with YAML 
 The first word is the **command name**. Everything after is the **description** (what the command does).
 
 **Examples:**
+
 - `/lup:add-command review` — name is `review`, description not provided (ask)
 - `/lup:add-command review Analyze PR diffs and suggest improvements` — name is `review`, description is "Analyze PR diffs and suggest improvements"
 

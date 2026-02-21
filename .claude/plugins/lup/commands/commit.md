@@ -14,6 +14,7 @@ Create commits for all staged and unstaged changes, following conventional commi
 ## Phase 1: Assess Changes
 
 Run these commands in parallel:
+
 1. `git status` - See all changed files
 2. `git diff` - See unstaged changes
 3. `git diff --cached` - See staged changes
@@ -68,6 +69,7 @@ meta(claude): add new workflow command
 ## Phase 4: Verify
 
 After creating commits:
+
 1. Run `git log --oneline -5` to show what was created
 2. Run `git status` to confirm working directory is clean
 
