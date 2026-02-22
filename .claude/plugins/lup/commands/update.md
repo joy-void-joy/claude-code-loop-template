@@ -80,14 +80,19 @@ Classify as:
   - **Agent core improvements** that generalize (error handling, log management, config patterns)
   - **Scoring/metrics improvements** (new columns, aggregation methods)
 
-- **Data-only or purely domain-specific**: Skip these
+- **Data-only**: Skip these entirely
   - Raw data commits (`data(outputs):`, `data(scores):`)
-  - API client code for a specific external service with no generalizable pattern
-  - Domain-specific prompts that encode knowledge irreducible to a template
 
-**The bias should be strongly toward inclusion.** Most code changes contain generalizable patterns even when they look domain-specific at first. A "Google Trends tool" commit is domain-specific, but if it introduces a new tool design pattern or a new way of structuring MCP responses, that pattern belongs in the template.
+**CRITICAL: Decompose commits, don't classify them whole.** A single commit often contains multiple independent changes — some portable, some not. Never label a commit "domain-specific" and move on. Instead, read the diff and ask **for each changed file or hunk**: "Is this piece independently portable?"
 
-**The key question is not "Is this portable?" but "What pattern does this represent?"** A downstream repo adds a version reviewer with Brier scores — the pattern is "structured agent version assessment." That pattern belongs in the template.
+Examples of what gets missed when you classify whole commits:
+- A "forge image mounting" commit also adds `save_images()` — a general utility for writing clipboard image data to disk. The forge wiring is domain-specific; the utility function is portable.
+- A "REPL upgrade" commit adds prompt_toolkit, clipboard paste, *and* container orchestration changes. The REPL UX is portable; the container setup is not.
+- A "sandbox tools" commit adds `run_code` *and* a new error-handling pattern in the tool wrapper. The tool is domain-specific; the error-handling pattern is portable.
+
+**The unit of portability is the individual change, not the commit.** When you see a commit touching domain-specific files, read the actual diff and extract every independently portable piece: utility functions, UX patterns, error handling, library additions, configuration patterns.
+
+**The key question is not "Is this commit portable?" but "What portable pieces does this commit contain?"** A downstream repo adds container image mounting — the portable piece is "clipboard image paste in REPL" and "content-hash file saving utility." Those belong in the template even though the container mounting doesn't.
 
 When reviewing diffs, also read the full changed files in both repos for context. File-level diffs help you understand how a change fits into the broader codebase structure.
 
