@@ -19,7 +19,7 @@ Modules:
 - sandbox: Docker-based Python sandbox for isolated code execution
 """
 
-from lup.lib.client import build_client, one_shot, run_query
+from lup.lib.client import build_client, one_shot, run_query, save_images
 from lup.lib.history import (
     format_history_for_context,
     get_latest_session_json,
@@ -89,6 +89,7 @@ __all__ = [
     "build_client",
     "one_shot",
     "run_query",
+    "save_images",
     # History
     "format_history_for_context",
     "get_latest_session_json",
