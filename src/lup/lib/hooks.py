@@ -31,7 +31,7 @@ from typing import Literal, cast
 from claude_agent_sdk import HookInput, HookMatcher, PostToolUseHookInput
 from claude_agent_sdk.types import HookContext, SyncHookJSONOutput
 
-from lup.lib.notes import path_is_under
+from lup.lib.notes import extract_glob_dir, path_is_under
 
 
 # Hook event types supported by the Claude Agent SDK
@@ -154,6 +154,10 @@ def create_permission_hooks(
 
             case "Glob" | "Grep":
                 file_path = tool_input.get("path", "")
+                if not file_path and tool_name == "Glob":
+                    file_path = extract_glob_dir(
+                        tool_input.get("pattern", "")
+                    )
                 if not file_path:
                     return deny_hook_output(
                         f"Path required for {tool_name}. "

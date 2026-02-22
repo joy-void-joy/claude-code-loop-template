@@ -86,6 +86,30 @@ def setup_notes(
     )
 
 
+def extract_glob_dir(pattern: str) -> str:
+    """Extract the directory prefix from a glob pattern.
+
+    Strips everything from the first glob wildcard character onward,
+    returning the longest non-glob directory prefix.
+
+    Used by permission hooks to validate Glob tool calls where the
+    agent puts the full path in the ``pattern`` parameter instead of
+    using the separate ``path`` parameter.
+
+    Examples:
+        >>> extract_glob_dir("/tmp/foo/**/*.py")
+        '/tmp/foo'
+        >>> extract_glob_dir("**/*.py")
+        ''
+        >>> extract_glob_dir("/tmp/foo/bar")
+        '/tmp/foo/bar'
+    """
+    for i, c in enumerate(pattern):
+        if c in "*?[":
+            return pattern[:i].rstrip("/")
+    return pattern
+
+
 def path_is_under(file_path: str | Path, allowed_dirs: list[Path]) -> bool:
     """Check if a file path is under one of the allowed directories.
 
