@@ -3,10 +3,9 @@
 This is a TEMPLATE. Customize for your domain.
 
 Key patterns:
-1. Use {date} placeholder for current date
-2. Specify output format requirements and reasoning guidance
-3. Include domain-specific guidance
-4. Tools self-document via their descriptions — listing them here
+1. Named sections composed at render time — add, remove, or reorder
+2. Use {date} placeholder for current date
+3. Tools self-document via their descriptions — listing them here
    creates a second source of truth that drifts as tools change
    (see Tool Design Philosophy in CLAUDE.md)
 """
@@ -15,21 +14,27 @@ from datetime import datetime
 from typing import Any
 
 
-# Base system prompt template - customize for your domain
-SYSTEM_PROMPT_TEMPLATE = """\
-You are an AI agent. Today's date is {date}.
+# ---------------------------------------------------------------------------
+# Prompt sections — customize for your domain
+# ---------------------------------------------------------------------------
 
+INTRO = """\
+You are an AI agent. Today's date is {date}."""
+
+PURPOSE = """\
 ## Your Task
 
-[Describe what the agent does]
+[Describe what the agent does]"""
 
+OUTPUT_FORMAT = """\
 ## Output Format
 
 Provide your output as structured JSON with:
 - **summary**: Brief summary of your decision/output
 - **factors**: Key factors that influenced your reasoning
-- **confidence**: Your confidence level (0.0-1.0)
+- **confidence**: Your confidence level (0.0-1.0)"""
 
+GUIDELINES = """\
 ## Guidelines
 
 1. Think step by step
@@ -37,33 +42,50 @@ Provide your output as structured JSON with:
 3. Be explicit about uncertainty
 4. Document your reasoning
 
-[Add domain-specific guidelines here]
-"""
+[Add domain-specific guidelines here]"""
+
+
+# ---------------------------------------------------------------------------
+# Composition
+# ---------------------------------------------------------------------------
+
+SECTIONS: list[str] = [
+    INTRO,
+    PURPOSE,
+    OUTPUT_FORMAT,
+    GUIDELINES,
+]
 
 
 def get_system_prompt(
     *,
     date: datetime | None = None,
     mcp_servers: dict[str, Any] | None = None,
+    extra_sections: list[str] | None = None,
 ) -> str:
-    """Generate the system prompt.
+    """Generate the system prompt by composing sections.
 
     Args:
         date: Date to use as "today". If None, uses current date.
         mcp_servers: Optional dict of MCP servers to auto-generate tool docs.
+        extra_sections: Additional prompt sections appended after SECTIONS.
 
     Returns:
         The formatted system prompt.
     """
     effective_date = date or datetime.now()
-    prompt = SYSTEM_PROMPT_TEMPLATE.format(date=effective_date.strftime("%Y-%m-%d"))
+    all_sections = list(SECTIONS)
+    if extra_sections:
+        all_sections.extend(extra_sections)
 
-    # If MCP servers provided, append auto-generated tool docs
+    prompt = "\n\n".join(all_sections)
+    prompt = prompt.format(date=effective_date.strftime("%Y-%m-%d"))
+
     if mcp_servers:
         tool_docs = generate_tool_docs(mcp_servers)
         prompt += f"\n\n{tool_docs}"
 
-    return prompt
+    return prompt + "\n"
 
 
 def generate_tool_docs(mcp_servers: dict[str, Any]) -> str:
@@ -96,8 +118,9 @@ def generate_tool_docs(mcp_servers: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-# --- Example Type-Specific Guidance ---
-# Customize these for your domain
+# ---------------------------------------------------------------------------
+# Task-specific guidance — customize for your domain
+# ---------------------------------------------------------------------------
 
 BINARY_GUIDANCE = """\
 ## Binary Decision Guidance
@@ -123,18 +146,19 @@ Provide estimates at multiple confidence levels.
 """
 
 
-def get_task_guidance(task_type: str, context: dict | None = None) -> str:
+def get_task_guidance(task_type: str) -> str:
     """Return task-specific guidance.
 
     Args:
         task_type: Type of task (binary, numeric, etc.)
-        context: Optional context dict with task details
 
     Returns:
         Formatted guidance string.
     """
-    if task_type == "binary":
-        return BINARY_GUIDANCE
-    elif task_type == "numeric":
-        return NUMERIC_GUIDANCE
-    return ""
+    match task_type:
+        case "binary":
+            return BINARY_GUIDANCE
+        case "numeric":
+            return NUMERIC_GUIDANCE
+        case _:
+            return ""
