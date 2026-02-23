@@ -99,8 +99,8 @@ def worktree_cmd(
     """
     current_dir = Path.cwd()
 
-    branch_name = f"feat/{name}" if not name.startswith("feat/") else name
-    worktree_name = name.replace("feat/", "")
+    branch_name = name
+    worktree_name = name
 
     tree_dir = _get_tree_dir()
     worktree_path = tree_dir / worktree_name
