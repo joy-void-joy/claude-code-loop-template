@@ -1,10 +1,10 @@
 [project]
-name = "lup-template"
+name = "lup"
 version = "0.1.0"
 description = "Self-improving agent template with feedback loop, built with the Claude Agent SDK"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "claude-agent-sdk>=0.1.26",
     "docker>=7.1.0",
@@ -45,6 +45,6 @@ markers = ["integration: tests requiring external services (Docker, APIs)"]
 
 [tool.pyright]
 include = ["src", "tests"]
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 venvPath = "."
 venv = ".venv"
