@@ -100,15 +100,22 @@ Rename `src/lup/` to `src/<project>/` where `<project>` is the name from Phase 1
 5. **Merge CLAUDE.md from template** — Perform a section-level merge using `TEMPLATE_CLAUDE.md` (located at `.claude/plugins/lup/TEMPLATE_CLAUDE.md`):
    1. Read `TEMPLATE_CLAUDE.md` and replace all `<project>` placeholders with the actual project name
    2. Read the existing `.claude/CLAUDE.md`
-   3. Compare sections: for each section in the adapted template, check if the existing CLAUDE.md already has that section (by heading match)
-   4. Add missing sections from the template into the existing CLAUDE.md
-   5. Leave existing sections untouched — don't overwrite content the project already has
-   6. Also do package-name replacements in the existing content: `src/lup/` → `src/<project>/`, `lup.agent` → `<project>.agent`, etc.
+   3. Use the `<!-- section: ... -->` markers in the template to identify independent merge units
+   4. Compare sections: for each marked section, check if the existing CLAUDE.md already has that section (by heading match)
+   5. Add missing sections from the template into the existing CLAUDE.md
+   6. Leave existing sections untouched — don't overwrite content the project already has
+   7. Also do package-name replacements in the existing content: `src/lup/` → `src/<project>/`, `lup.agent` → `<project>.agent`, etc.
 
 6. **Update logger names** in `src/<project>/lib/trace.py`:
    - `"lup.agent.stream"` → `"<project>.agent.stream"`
 
-7. **Verify**:
+7. **Initialize upstream sync**:
+   ```bash
+   uv run lup-devtools sync mark-synced lup
+   ```
+   This baselines the sync state so `/lup:update` only shows commits after this point.
+
+8. **Verify**:
    ```bash
    uv sync
    uv run pyright

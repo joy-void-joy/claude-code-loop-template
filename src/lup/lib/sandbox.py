@@ -280,7 +280,13 @@ class ReplSession:
                     stdout_buf += data
                     if b"\n" in stdout_buf:
                         line, _, _ = stdout_buf.partition(b"\n")
-                        return json.loads(line.decode("utf-8"))
+                        text = line.decode("utf-8", errors="replace")
+                        try:
+                            return json.loads(text)
+                        except json.JSONDecodeError as e:
+                            raise ReplCrashedError(
+                                f"REPL returned non-JSON: {text[:200]}"
+                            ) from e
                 case 2:  # stderr
                     logger.debug(
                         "REPL stderr: %s", data.decode("utf-8", errors="replace")

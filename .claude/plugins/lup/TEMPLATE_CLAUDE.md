@@ -1,17 +1,24 @@
 # CLAUDE.md Template
 
-This is the portable CLAUDE.md scaffold that lup installs into downstream projects. It contains conventions, workflow patterns, and coding standards that apply to any project using lup.
+This file exports portable sections from the upstream CLAUDE.md as a scaffold for downstream projects. It contains conventions, workflow patterns, and coding standards that apply to any project using lup.
 
-**How it's used:** `/lup:init` and `/lup:install` perform a **section-level merge** — they compare this template's sections against the target's existing CLAUDE.md, add sections that are missing, and leave existing sections untouched. Placeholders like `<project>` are replaced with the actual project name.
+**How it's used:** `/lup:init` and `/lup:install` perform a **section-level merge** — they use the `<!-- section: ... -->` markers below to identify independent merge units, compare them against the target's existing CLAUDE.md, add sections that are missing, and leave existing sections untouched. Placeholders like `<project>` are replaced with the actual project name.
 
 ---
 
+<!-- section: CLAUDE.md -->
 # CLAUDE.md
 
 This file provides guidance to Claude Code when working with code in this repository.
 
 **Note:** Modifying `CLAUDE.md` means modifying `.claude/CLAUDE.md` (this file).
 
+<!-- section: First Setup -->
+## First Setup
+
+**[IMPORTANT: Run `uv run lup-devtools sync mark-synced lup` to initialize upstream sync tracking, then delete this section.]**
+
+<!-- section: Project Overview -->
 ## Project Overview
 
 **[Describe your agent and what it does]**
@@ -100,6 +107,7 @@ Agents produce better output when forced to self-assess before committing. The r
 
 ---
 
+<!-- section: Getting Started -->
 # Getting Started
 
 ## Reference Files
@@ -278,6 +286,7 @@ Edit `src/<project>/devtools/feedback.py`:
 
 ---
 
+<!-- section: Development Workflow -->
 # Development Workflow
 
 ## Git Workflow
@@ -392,7 +401,8 @@ src/
 
 ---
 
-# Code Style & Dependencies
+<!-- section: Code Style & Patterns -->
+# Code Style & Patterns
 
 ## Primary Libraries
 
@@ -539,6 +549,7 @@ The `pyright-lsp` plugin provides code intelligence. **Use these actively** -- t
 
 ---
 
+<!-- section: Tooling -->
 # Tooling
 
 ## lup-devtools
@@ -571,6 +582,7 @@ All Claude Code settings modifications should be **project-level** (in `.claude/
 
 ---
 
+<!-- section: Process & Communication -->
 # Process & Communication
 
 ## Asking Questions
@@ -638,6 +650,7 @@ When the user provides documentation links, incorporate that knowledge into CLAU
 
 ---
 
+<!-- section: Self-Improvement Loop -->
 # Self-Improvement Loop
 
 See [The Bitter Lesson](#the-bitter-lesson) and [Tool Design Philosophy](#tool-design-philosophy) above — these are the governing principles for all agent improvements.
@@ -689,6 +702,7 @@ Configuration is loaded via pydantic-settings. See `src/<project>/agent/config.p
 
 ---
 
+<!-- section: Anti-Patterns to Avoid -->
 # Anti-Patterns to Avoid
 
 - Adding numeric patches ("subtract 10% from estimates")

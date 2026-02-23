@@ -167,7 +167,7 @@ Be conservative — only install what clearly adds value. Typical candidates (bu
 - **Plugin infrastructure**: plugin.json, hooks.json, settings.json (local marketplace + plugin enablement)
 - **Permission hooks** adapted to the target's ecosystem (its build tool, test runner, linter, doc URLs)
 - **Generic commands** that work in any repo (git workflow, CLAUDE.md maintenance, meta, refactor, etc.)
-- **CLAUDE.md**: Perform a **section-level merge** using `TEMPLATE_CLAUDE.md` (`.claude/plugins/lup/TEMPLATE_CLAUDE.md`). Read the template, adapt it for the target's project name and ecosystem, then compare sections against the target's existing CLAUDE.md. Add sections that are missing; leave existing sections untouched. If no CLAUDE.md exists, create one from the adapted template.
+- **CLAUDE.md**: Perform a **section-level merge** using `TEMPLATE_CLAUDE.md` (`.claude/plugins/lup/TEMPLATE_CLAUDE.md`). Read the template, use the `<!-- section: ... -->` markers to identify independent merge units, adapt for the target's project name and ecosystem, then compare marked sections against the target's existing CLAUDE.md. Add sections that are missing; leave existing sections untouched. If no CLAUDE.md exists, create one from the adapted template.
 - **If Agent SDK detected**: Also install the self-improvement scaffolding — this is lup's core value. The feedback loop commands, lib utilities (trace, scoring, metrics, hooks, version), devtools CLI pattern, session/trace directory structure, downstream.json for sync. Adapt to layer on top of the target's existing agent, not replace it.
 
 **Constraints** in non-interactive mode:
@@ -212,7 +212,8 @@ For each item being installed:
 4. `.claude/plugins/lup/commands/` — selected commands
 5. `src/<project>/devtools/` — devtools CLI skeleton (if Python target, adapt package name and entry point)
 6. `.claude/settings.json` — create or merge
-7. `.claude/CLAUDE.md` — section-level merge from TEMPLATE_CLAUDE.md (read template → adapt for target → compare sections → add missing ones → leave existing untouched)
+7. `.claude/CLAUDE.md` — section-level merge from TEMPLATE_CLAUDE.md (read template → use `<!-- section: ... -->` markers to identify merge units → adapt for target → compare sections → add missing ones → leave existing untouched)
+8. **Initialize upstream sync**: Run `uv run lup-devtools sync mark-synced lup` to baseline the sync state so `/lup:update` only shows commits after installation
 
 ## Phase 7: Verify & Report
 
