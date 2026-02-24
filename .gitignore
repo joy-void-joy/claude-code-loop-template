@@ -214,3 +214,4 @@ tmp/
 downstream.json.local
 .cache/
 refs/
+**/*.bak
