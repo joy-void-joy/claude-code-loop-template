@@ -27,6 +27,7 @@ Read the relevant files based on what the user is asking about, then use AskUser
 plugins/lup/
 ├── .claude-plugin/plugin.json   # Plugin metadata
 ├── commands/                    # Slash commands
+│   ├── brainstorm.md            # Pre-init design exploration
 │   ├── init.md                  # Domain initialization wizard
 │   ├── feedback-loop.md         # 3-level meta analysis
 │   └── meta.md                  # This file

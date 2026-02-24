@@ -13,6 +13,16 @@ This command sets up the project identity, renames the source package, and custo
 
 Interview the user about their domain, rename the source package, and generate the appropriate scaffolding.
 
+## Phase 0: Check for DESIGN.md
+
+Before starting the interview, check if `DESIGN.md` exists in the project root. If it does:
+
+1. Read it thoroughly
+2. Use it as context for the entire init process — it contains design decisions from a `/lup:brainstorm` session
+3. Still run the full interview, but reference design decisions when asking questions (e.g., "DESIGN.md mentions you want a persistent agent with sleep/wake — does that still hold?")
+4. Skip questions whose answers are unambiguously covered in the design doc
+5. If no DESIGN.md exists, proceed normally
+
 ## Phase 1: Project Identity
 
 Use AskUserQuestion to determine the project name:

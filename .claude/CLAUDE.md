@@ -8,7 +8,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 This is a **self-improving agent template and scaffold** built with the Claude Agent SDK. It serves two roles:
 
-1. **Template** — Code that downstream projects customize for their domain: agent prompts, tools, models, environment scaffolding. The `/lup:init` command walks through this customization.
+1. **Template** — Code that downstream projects customize for their domain: agent prompts, tools, models, environment scaffolding. `/lup:brainstorm` explores the design, `/lup:init` executes the customization.
 2. **Scaffold** — Agents, commands, hooks, and workflows that downstream projects inherit and extend. These provide the development workflow (commit, rebase, feedback loop) and analysis infrastructure (trace exploration, version comparison) that every project needs.
 
 When reviewing changes from downstream repos (`/lup:update`), the goal is to **generalize domain-specific patterns back into the template**. The bias is toward inclusion: if a pattern emerged from real use, it likely belongs in the template.
@@ -241,14 +241,15 @@ uv run lup-devtools metrics summary
 
 ### Customizing for Your Domain
 
-1. **Run `/lup:init`** — Walks through domain customization (what the agent does, how outcomes are measured, what metrics matter)
-2. **Models** (`agent/models.py`) — `AgentOutput`, `Factor`, `SessionResult`
-3. **Subagents** (`agent/subagents.py`) — Specialized subagents, tool sets, model choices
-4. **Tools** (`agent/tool_policy.py`) — API key requirements, conditional availability, MCP configs
-5. **Reflection** (`agent/tools/reflect.py`) — Domain-specific `ReflectInput` fields, reviewer prompt
-6. **Version** (`version.py`) — Set initial `AGENT_VERSION`, bump on behavior changes
-7. **Persistent mode** (optional) — Wire `Scheduler` from `lib/realtime.py`, add Stop hook, implement sleep/context/reply tools, replace request-response with sleep/wake loop
-8. **Feedback** (`devtools/feedback.py`) — Implement `load_outcomes()`, customize `compute_metrics()`
+1. **Run `/lup:brainstorm`** (optional) — Explore architecture, MCP tools, and agent design before committing to scaffolding. Produces a `DESIGN.md` that init reads as context.
+2. **Run `/lup:init`** — Walks through domain customization (what the agent does, how outcomes are measured, what metrics matter)
+3. **Models** (`agent/models.py`) — `AgentOutput`, `Factor`, `SessionResult`
+4. **Subagents** (`agent/subagents.py`) — Specialized subagents, tool sets, model choices
+5. **Tools** (`agent/tool_policy.py`) — API key requirements, conditional availability, MCP configs
+6. **Reflection** (`agent/tools/reflect.py`) — Domain-specific `ReflectInput` fields, reviewer prompt
+7. **Version** (`version.py`) — Set initial `AGENT_VERSION`, bump on behavior changes
+8. **Persistent mode** (optional) — Wire `Scheduler` from `lib/realtime.py`, add Stop hook, implement sleep/context/reply tools, replace request-response with sleep/wake loop
+9. **Feedback** (`devtools/feedback.py`) — Implement `load_outcomes()`, customize `compute_metrics()`
 
 ---
 
