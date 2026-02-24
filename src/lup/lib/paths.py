@@ -1,7 +1,8 @@
 """Centralized path constants and helpers for agent session data.
 
 All session-related paths are routed through this module. Writers use
-version-specific directories; readers iterate across all versions.
+version-specific directories; readers default to the current AGENT_VERSION
+with progressive semver fallback when data is insufficient.
 
 Paths auto-detect the project root (walking up to ``pyproject.toml``)
 but can be overridden via :func:`configure`::
@@ -221,3 +222,88 @@ def list_all_session_ids(version: str | None = None) -> list[str]:
     for d in iter_session_dirs(version=version):
         ids.add(d.name)
     return sorted(ids)
+
+
+# -- Version scope resolution ------------------------------------------------
+
+MIN_VERSION_DATAPOINTS = 10
+
+_SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
+
+
+def parse_semver(version: str) -> tuple[int, int, int] | None:
+    """Parse 'X.Y.Z' into (major, minor, patch), or None if invalid."""
+    m = _SEMVER_RE.match(version)
+    if not m:
+        return None
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def count_sessions_for_versions(versions: list[str]) -> int:
+    """Count total session directories across a set of version directories."""
+    return sum(sum(1 for _ in iter_session_dirs(version=v)) for v in versions)
+
+
+def resolve_version(
+    version: str | None,
+    all_versions: bool = False,
+    min_datapoints: int = MIN_VERSION_DATAPOINTS,
+) -> tuple[list[str] | None, str | None]:
+    """Resolve effective version scope with progressive semver fallback.
+
+    Fallback chain: exact version → X.Y.* → X.* → all versions.
+    Widens when the narrower scope has fewer than ``min_datapoints`` sessions.
+
+    Returns ``(version_list, warning_message)``.
+    ``version_list`` is ``None`` when all versions should be included.
+    """
+    if all_versions:
+        return None, None
+
+    effective = version if version is not None else AGENT_VERSION
+    semver = parse_semver(effective)
+    available = [d.name for d in version_dirs()]
+
+    # Level 1: exact version
+    exact = [effective] if effective in available else []
+    exact_count = count_sessions_for_versions(exact)
+    if exact_count >= min_datapoints:
+        return exact, None
+
+    if semver is None:
+        return None, (
+            f"v{effective} has only {exact_count} sessions "
+            f"(need {min_datapoints}) — including all versions"
+        )
+
+    major, minor, _ = semver
+
+    # Level 2: same minor (X.Y.*)
+    minor_matches = [
+        v
+        for v in available
+        if (sv := parse_semver(v)) is not None and sv[0] == major and sv[1] == minor
+    ]
+    minor_count = count_sessions_for_versions(minor_matches)
+    if minor_count >= min_datapoints:
+        return minor_matches, (
+            f"v{effective} has only {exact_count} sessions "
+            f"— widening to v{major}.{minor}.* ({minor_count} sessions)"
+        )
+
+    # Level 3: same major (X.*)
+    major_matches = [
+        v for v in available if (sv := parse_semver(v)) is not None and sv[0] == major
+    ]
+    major_count = count_sessions_for_versions(major_matches)
+    if major_count >= min_datapoints:
+        return major_matches, (
+            f"v{major}.{minor}.* has only {minor_count} sessions "
+            f"— widening to v{major}.* ({major_count} sessions)"
+        )
+
+    # Level 4: all versions
+    return None, (
+        f"v{major}.* has only {major_count} sessions "
+        f"(need {min_datapoints}) — including all versions"
+    )
