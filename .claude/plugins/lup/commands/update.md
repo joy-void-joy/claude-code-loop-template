@@ -118,7 +118,8 @@ For approved improvements:
    - Rename domain-specific identifiers to match the current project
    - Adjust import paths (the upstream might use a different package name)
    - Keep the current project's coding conventions
-3. Run verification after applying:
+3. **Wire new utilities into consumers.** When porting a library function (e.g., a helper in `lib/`), don't stop at the function itself — also wire it into the devtools commands, hooks, or agents that should use it. A utility without consumers is dead code.
+4. Run verification after applying:
    ```bash
    uv run pyright
    uv run ruff check .
