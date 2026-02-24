@@ -209,8 +209,7 @@ def create_reflect_tools(
         ReflectInput,
     )
     @tracked("review")
-    async def review(args: dict[str, Any]) -> dict[str, Any]:
-        validated = ReflectInput.model_validate(args)
+    async def review(validated: ReflectInput) -> dict[str, Any]:
 
         # Save the review input
         session_dir.mkdir(parents=True, exist_ok=True)

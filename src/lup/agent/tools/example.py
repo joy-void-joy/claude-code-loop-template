@@ -84,9 +84,8 @@ class FetchOutput(BaseModel):
     SearchOutput,
 )
 @tracked("search_example")
-async def search_example(args: dict[str, Any]) -> dict[str, Any]:
+async def search_example(params: SearchInput) -> dict[str, Any]:
     """Search for information."""
-    params = SearchInput.model_validate(args)
 
     if not params.query:
         return {
@@ -135,9 +134,8 @@ async def search_example(args: dict[str, Any]) -> dict[str, Any]:
     FetchOutput,
 )
 @tracked("fetch_example")
-async def fetch_example(args: dict[str, Any]) -> dict[str, Any]:
+async def fetch_example(params: FetchInput) -> dict[str, Any]:
     """Fetch content from a URL."""
-    params = FetchInput.model_validate(args)
 
     if not params.url:
         return {
