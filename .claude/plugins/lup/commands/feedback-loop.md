@@ -191,7 +191,7 @@ grep AGENT_VERSION src/lup/version.py
 uv run lup-devtools feedback collect --all-time
 ```
 
-**Always scope analysis to the current agent version.** Different versions have different prompts, tools, and subagent configurations. Mixing data across versions produces meaningless aggregate statistics. Use `read_scores_for_version()` or filter `notes/scores.csv` by the `agent_version` column.
+**Always scope analysis to the current agent version.** Different versions have different prompts, tools, and subagent configurations. Mixing data across versions produces meaningless aggregate statistics. Devtools commands auto-scope to the current version (see [Version Scoping](#version-scoping) above).
 
 **If you have outcome data**: Focus on accuracy/success metrics. This is the REAL signal.
 
@@ -223,23 +223,35 @@ Different domains have different ground truth:
 
 **This is the most important phase.** Do not skip to aggregate patterns.
 
-### CRITICAL: Filter by AGENT_VERSION
+### Version Scoping
 
-**Every analysis must be version-aware.** Different agent versions have different prompts,
-tools, and subagent configurations. Mixing data across versions produces meaningless
-aggregate statistics.
+All devtools commands **default to the current AGENT_VERSION** with progressive semver
+fallback (exact → X.Y.* → X.* → all) when the current version has insufficient data.
+You do NOT need to manually pass `--version` — commands auto-scope.
 
-1. Check the current version: `grep AGENT_VERSION src/lup/version.py`
-2. Filter `notes/scores.csv` by `agent_version` when analyzing outcomes
-3. When comparing to previous versions, always report metrics PER VERSION
-4. If the `agent_version` field is missing or inconsistent, note this as a data quality
-   issue — do not silently include unversioned data in current-version metrics
+**For learning phases** that need data from older versions, use `--all-versions`:
+```bash
+uv run lup-devtools metrics summary --all-versions
+uv run lup-devtools trace errors --all-versions
+```
 
-**Use scores.csv to find best/worst sessions for deep trace reading:**
+**Scoping examples:**
+```bash
+# Current version (default) — for diagnostics and current performance
+uv run lup-devtools metrics summary
+uv run lup-devtools trace errors
+
+# All versions — for learning from historical sessions
+uv run lup-devtools metrics tools --all-versions
+uv run lup-devtools feedback collect --all-versions
+```
+
+**Use devtools to find best/worst sessions for deep trace reading:**
 
 ```bash
-# Read scores and filter by version (customize for your domain)
+# Session metrics summary (auto-scoped to current version)
 uv run lup-devtools metrics summary
+uv run lup-devtools metrics errors
 ```
 
 ### 2a. Launch Trace Explorer (Subagent)
@@ -278,8 +290,8 @@ Return the standard pattern report.
 
 **What to include in the prompt:**
 
-- Session IDs to analyze (from scores.csv extremes, or all recent sessions)
-- Current agent version (so the explorer can filter)
+- Session IDs to analyze (from `lup-devtools metrics errors`, or all recent sessions)
+- Current agent version (devtools auto-scope, but state it for the explorer)
 - Any specific focus areas from Phase 1 findings
 - Known issues from the previous feedback session (Phase 0)
 

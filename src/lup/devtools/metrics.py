@@ -9,16 +9,17 @@ from typing import Any
 
 import typer
 
-from lup.lib.paths import feedback_path, iter_session_dirs
+from lup.lib.paths import feedback_path, iter_session_dirs, resolve_version
+from lup.version import AGENT_VERSION
 
 app = typer.Typer(no_args_is_help=True)
 
 
-def load_all_sessions() -> list[dict[str, Any]]:
-    """Load all session files across all versions."""
+def load_all_sessions(version: str | None = None) -> list[dict[str, Any]]:
+    """Load session files, optionally filtered by agent version."""
     sessions: list[dict[str, Any]] = []
 
-    for session_dir in iter_session_dirs():
+    for session_dir in iter_session_dirs(version=version):
         for session_file in session_dir.glob("*.json"):
             try:
                 data: dict[str, Any] = json.loads(session_file.read_text())
@@ -30,10 +31,30 @@ def load_all_sessions() -> list[dict[str, Any]]:
     return sessions
 
 
+def _load_for_versions(versions: list[str] | None) -> list[dict[str, Any]]:
+    """Load sessions for a resolved version list (None = all)."""
+    if versions is None:
+        return load_all_sessions()
+    results: list[dict[str, Any]] = []
+    for v in versions:
+        results.extend(load_all_sessions(version=v))
+    return results
+
+
 @app.command("summary")
-def summary() -> None:
-    """Show aggregate summary of all sessions."""
-    sessions = load_all_sessions()
+def summary(
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
+) -> None:
+    """Show aggregate summary of sessions."""
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+    sessions = _load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         typer.echo("Checked all version directories under notes/traces/")
@@ -75,9 +96,19 @@ def summary() -> None:
 
 
 @app.command("tools")
-def tools() -> None:
+def tools(
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
+) -> None:
     """Show tool usage aggregates."""
-    sessions = load_all_sessions()
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+    sessions = _load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
@@ -119,9 +150,18 @@ def tools() -> None:
 @app.command("errors")
 def errors(
     limit: int = typer.Option(20, "-n", "--limit", help="Max sessions to show"),
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
 ) -> None:
     """Show sessions with high error rates."""
-    sessions = load_all_sessions()
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+    sessions = _load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
@@ -158,9 +198,18 @@ def errors(
 @app.command("trends")
 def trends(
     window: int = typer.Option(10, "-w", "--window", help="Rolling window size"),
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
 ) -> None:
     """Show metric trends over time."""
-    sessions = load_all_sessions()
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+    sessions = _load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)

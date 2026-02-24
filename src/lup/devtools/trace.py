@@ -8,7 +8,13 @@ from pathlib import Path
 
 import typer
 
-from lup.lib.paths import iter_session_dirs, iter_trace_log_files, traces_path
+from lup.lib.paths import (
+    iter_session_dirs,
+    iter_trace_log_files,
+    resolve_version,
+    traces_path,
+)
+from lup.version import AGENT_VERSION
 
 app = typer.Typer(no_args_is_help=True)
 
@@ -114,8 +120,18 @@ def search(
 @app.command("errors")
 def errors(
     limit: int = typer.Option(20, "-n", "--limit", help="Max errors to show"),
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
 ) -> None:
     """Show sessions with errors or failures."""
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+
     error_patterns = [
         r"error",
         r"failed",
@@ -130,9 +146,16 @@ def errors(
     regex = re.compile("|".join(error_patterns), re.IGNORECASE)
     errors_by_session: dict[str, list[str]] = {}
 
-    search_paths: list[Path] = (
-        list(traces_path().rglob("*.md")) if traces_path().exists() else []
-    )
+    if effective:
+        search_paths: list[Path] = []
+        for v in effective:
+            ver_dir = traces_path() / v
+            if ver_dir.exists():
+                search_paths.extend(ver_dir.rglob("*.md"))
+    else:
+        search_paths = (
+            list(traces_path().rglob("*.md")) if traces_path().exists() else []
+        )
 
     for trace_file in search_paths:
         try:
@@ -173,13 +196,24 @@ def errors(
 @app.command("list")
 def list_traces(
     limit: int = typer.Option(20, "-n", "--limit", help="Max to show"),
+    version: str | None = typer.Option(
+        AGENT_VERSION, "--version", "-v", help="Agent version (default: current)"
+    ),
+    all_versions: bool = typer.Option(
+        False, "--all-versions", help="Include all versions"
+    ),
 ) -> None:
     """List available traces."""
+    effective, warning = resolve_version(version, all_versions)
+    if warning:
+        typer.echo(warning)
+
     traces: list[tuple[str, str, Path]] = []
 
-    # Collect trace logs across all versions
-    for session_dir in iter_session_dirs():
-        traces.append(("sessions", session_dir.name, session_dir))
+    versions_iter = effective if effective else [None]
+    for ver in versions_iter:
+        for session_dir in iter_session_dirs(version=ver):
+            traces.append(("sessions", session_dir.name, session_dir))
 
     for log_file in iter_trace_log_files():
         session_id = log_file.parent.name

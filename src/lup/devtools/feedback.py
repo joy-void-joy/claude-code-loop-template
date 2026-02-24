@@ -18,7 +18,13 @@ from typing import Annotated, Any
 import typer
 from pydantic import BaseModel
 
-from lup.lib.paths import feedback_path, iter_session_dirs, traces_path
+from lup.lib.paths import (
+    feedback_path,
+    iter_session_dirs,
+    resolve_version,
+    traces_path,
+)
+from lup.version import AGENT_VERSION
 
 app = typer.Typer(no_args_is_help=True)
 logger = logging.getLogger(__name__)
@@ -77,11 +83,13 @@ class FeedbackMetrics(BaseModel):
 # =============================================================================
 
 
-def load_sessions(since: datetime | None = None) -> list[dict[str, Any]]:
-    """Load all session data across all versions."""
+def load_sessions(
+    since: datetime | None = None, version: str | None = None
+) -> list[dict[str, Any]]:
+    """Load session data, optionally filtered by version."""
     sessions: list[dict[str, Any]] = []
 
-    for session_dir in iter_session_dirs():
+    for session_dir in iter_session_dirs(version=version):
         session_files = sorted(session_dir.glob("*.json"), reverse=True)
         if not session_files:
             continue
@@ -162,6 +170,16 @@ def collect(
         bool,
         typer.Option("--all-time", help="Include all sessions regardless of date"),
     ] = False,
+    version: Annotated[
+        str | None,
+        typer.Option(
+            "--version", "-v", help="Agent version (default: current)"
+        ),
+    ] = AGENT_VERSION,
+    all_versions: Annotated[
+        bool,
+        typer.Option("--all-versions", help="Include all versions"),
+    ] = False,
     output: Annotated[
         Path | None,
         typer.Option("--output", "-o", help="Output file path"),
@@ -169,6 +187,10 @@ def collect(
 ) -> None:
     """Collect feedback metrics from sessions."""
     logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+
+    effective, ver_warning = resolve_version(version, all_versions)
+    if ver_warning:
+        typer.echo(ver_warning)
 
     since_dt: datetime | None = None
     if not all_time and since:
@@ -179,7 +201,12 @@ def collect(
         since_dt.isoformat() if since_dt else "all time",
     )
 
-    sessions = load_sessions(since_dt)
+    sessions: list[dict[str, Any]] = []
+    if effective is None:
+        sessions = load_sessions(since_dt)
+    else:
+        for v in effective:
+            sessions.extend(load_sessions(since_dt, version=v))
     logger.info("Found %d sessions", len(sessions))
 
     results = match_outcomes(sessions)
@@ -203,12 +230,33 @@ def collect(
 
 
 @app.command("check")
-def check() -> None:
+def check(
+    version: Annotated[
+        str | None,
+        typer.Option(
+            "--version", "-v", help="Agent version (default: current)"
+        ),
+    ] = AGENT_VERSION,
+    all_versions: Annotated[
+        bool,
+        typer.Option("--all-versions", help="Include all versions"),
+    ] = False,
+) -> None:
     """Check what data is available for feedback collection."""
+    effective, ver_warning = resolve_version(version, all_versions)
+    if ver_warning:
+        typer.echo(ver_warning)
+
     print("\n=== Feedback Data Check ===\n")
 
-    session_count = sum(1 for _ in iter_session_dirs())
-    print(f"Sessions: {session_count} (across all versions in {traces_path()})")
+    if effective:
+        session_count = sum(
+            sum(1 for _ in iter_session_dirs(version=v)) for v in effective
+        )
+        print(f"Sessions: {session_count} (versions: {effective})")
+    else:
+        session_count = sum(1 for _ in iter_session_dirs())
+        print(f"Sessions: {session_count} (all versions in {traces_path()})")
 
     if traces_path().exists():
         version_count = sum(1 for d in traces_path().iterdir() if d.is_dir())
