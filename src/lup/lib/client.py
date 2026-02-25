@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal, overload
 
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ContentBlock
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient, ContentBlock, Message
 from claude_agent_sdk.types import (
     AgentDefinition,
     AssistantMessage,
@@ -31,7 +31,7 @@ from claude_agent_sdk.types import (
 )
 from pydantic import BaseModel
 
-from lup.lib.trace import TraceLogger, print_block
+from lup.lib.trace import TraceLogger, print_message
 
 logger = logging.getLogger(__name__)
 
@@ -55,61 +55,49 @@ OutputFormat = dict[str, str | JsonSchema]
 class ResponseCollector:
     """Collects, displays, and logs agent response messages.
 
-    Encapsulates the common pattern of iterating over SDK response messages,
-    printing and logging each content block, and collecting results for
-    post-processing.
+    Supports two usage patterns:
 
-    ``blocks`` contains only assistant-produced content blocks.  Tool result
-    blocks are collected separately in ``tool_results``.
+    **async for** — iterate messages yourself, no automatic display::
 
-    Usage::
+        collector = ResponseCollector(client, trace_logger=trace_logger)
+        async for message in collector:
+            print_message(message)
 
-        collector = ResponseCollector(trace_logger=trace_logger)
-        result = await collector.collect(client)
-        # collector.blocks       — assistant content blocks
-        # collector.tool_results — user/tool-result content blocks
-        # collector.messages     — all assistant + user messages in order
-        # collector.result       — the final ResultMessage
+    **collect()** — drain all messages with automatic display::
+
+        collector = ResponseCollector(client, trace_logger=trace_logger)
+        result = await collector.collect()
+
+    After iteration, access accumulated state:
+    ``collector.blocks``, ``collector.tool_results``,
+    ``collector.messages``, ``collector.result``.
     """
 
     def __init__(
         self,
+        client: ClaudeSDKClient,
         trace_logger: TraceLogger | None = None,
         prefix: str = "",
-        spaced: bool = False,
     ) -> None:
+        self.client = client
         self.blocks: list[ContentBlock] = []
         self.tool_results: list[ContentBlock] = []
         self.messages: list[AssistantMessage | UserMessage] = []
         self.result: ResultMessage | None = None
         self.trace_logger = trace_logger
         self.prefix = prefix
-        self.spaced = spaced
 
-    def display_block(self, block: ContentBlock) -> None:
-        """Print, log, and optionally trace a content block."""
-        print_block(block, prefix=self.prefix)
-        if self.spaced:
-            print()
-        if self.trace_logger:
-            self.trace_logger.log_block(block)
+    async def __aiter__(self) -> AsyncIterator[Message]:
+        """Yield messages, accumulating state but not displaying.
 
-    async def collect(self, client: ClaudeSDKClient) -> ResultMessage:
-        """Iterate response, print+log blocks, and return the result.
-
-        Assistant blocks go into ``self.blocks``.  User message blocks
-        (tool results) are displayed but kept in ``self.tool_results``.
-
-        Raises:
-            RuntimeError: If the agent returns an error or no result.
+        Raises RuntimeError on agent error results.
         """
-        async for message in client.receive_response():
+        async for message in self.client.receive_response():
             match message:
                 case AssistantMessage():
                     self.messages.append(message)
                     for block in message.content:
                         self.blocks.append(block)
-                        self.display_block(block)
 
                 case ResultMessage():
                     self.result = message
@@ -124,7 +112,19 @@ class ResponseCollector:
                     if isinstance(message.content, list):
                         for block in message.content:
                             self.tool_results.append(block)
-                            self.display_block(block)
+
+            yield message
+
+    async def collect(self) -> ResultMessage:
+        """Drain all messages, displaying blocks, and return the result.
+
+        Shorthand for ``async for`` with ``print_message`` on every message.
+
+        Raises:
+            RuntimeError: If the agent returns an error or no result.
+        """
+        async for message in self:
+            print_message(message, prefix=self.prefix, trace_logger=self.trace_logger)
 
         if self.result is None:
             raise RuntimeError("No result received from agent")
@@ -219,7 +219,6 @@ async def run_query(
 
     Returns the ResponseCollector with .result, .blocks, .messages.
     """
-    collector = ResponseCollector(prefix=prefix, trace_logger=trace_logger)
     async with build_client(
         options=options,
         model=model,
@@ -237,7 +236,8 @@ async def run_query(
         hooks=hooks,
     ) as client:
         await client.query(prompt)
-        await collector.collect(client)
+        collector = ResponseCollector(client, prefix=prefix, trace_logger=trace_logger)
+        await collector.collect()
     return collector
 
 

@@ -430,7 +430,6 @@ class _Interrupted(Exception):
 
 
 async def _collect_interruptible(
-    client: "ClaudeSDKClient",
     collector: "ResponseCollector",
     console: "Console",
 ) -> "ResultMessage":
@@ -443,7 +442,7 @@ async def _collect_interruptible(
     interrupt_count = 0
 
     async def do_collect() -> "ResultMessage":
-        return await collector.collect(client)
+        return await collector.collect()
 
     collect_task = asyncio.create_task(do_collect())
 
@@ -452,7 +451,7 @@ async def _collect_interruptible(
         interrupt_count += 1
         if interrupt_count == 1:
             console.print("\n  [dim]interrupting...[/dim]")
-            asyncio.ensure_future(client.interrupt())
+            asyncio.ensure_future(collector.client.interrupt())
         else:
             collect_task.cancel()
 
@@ -651,10 +650,10 @@ async def _repl(
                         pending_images.clear()
                     else:
                         await client.query(user_input)
-                    collector = ResponseCollector(spaced=True)
+                    collector = ResponseCollector(client)
                     try:
                         result = await _collect_interruptible(
-                            client, collector, console,
+                            collector, console,
                         )
                         parts: list[str] = []
                         if result.duration_ms:
