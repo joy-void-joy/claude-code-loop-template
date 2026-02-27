@@ -154,13 +154,13 @@ Agents produce better output when forced to self-assess before committing. Three
 
 Distinct from **subagents** (SDK-native `Task()` dispatch, defined upfront in `get_subagents()`, same session). A nested agent is a tool that internally creates an independent SDK client, runs it, and folds the result back into its tool response.
 
-| Aspect | Subagent | Nested Agent |
-|---|---|---|
-| Definition | Upfront in `get_subagents()` | On-demand inside a tool handler |
-| Client | Main agent's SDK session | Independent client via `query()` |
-| Session | Shared — same trace, same metrics | Isolated — no session persistence |
-| Return | SDK `ResultMessage` (structured) | Scalar result augmented by the tool |
-| Use case | Specialized long-running work | Quick generation, review, parsing |
+| Aspect     | Subagent                          | Nested Agent                        |
+| ---------- | --------------------------------- | ----------------------------------- |
+| Definition | Upfront in `get_subagents()`      | On-demand inside a tool handler     |
+| Client     | Main agent's SDK session          | Independent client via `query()`    |
+| Session    | Shared — same trace, same metrics | Isolated — no session persistence   |
+| Return     | SDK `ResultMessage` (structured)  | Scalar result augmented by the tool |
+| Use case   | Specialized long-running work     | Quick generation, review, parsing   |
 
 **The augmentation pattern:** The tool handler post-processes the nested agent's output before returning it. The nested agent produces raw material; the tool shapes it into the MCP response:
 
@@ -182,6 +182,28 @@ async def review(params: ReviewInput) -> ReviewOutput:
 **Library support:** `query()` in `lib/client.py` handles the full pipeline (build client → query → collect). Session persistence is automatically disabled. Use `collector.text` for text extraction, `collector.output(T)` for structured output, or pass `output_type=T` to `query()` to get `T | None` directly.
 
 **When to use each:** The axis is **context separation**. **Subagents** extend the main agent's thinking — same session, shared context, like a specialized lobe that makes reasoning more efficient. **Nested agents** are for truly separable work — the two contexts shouldn't pollute each other. The main agent doesn't need the nested agent's reasoning chain, just its conclusion. The tool handler acts as a context boundary.
+
+#### Data Augmentation Pattern
+
+Tools that fetch external data should **enrich it inside the tool** before returning to the agent. The agent receives structured, domain-aware results — not raw HTML, API responses, or search snippets it has to interpret.
+
+| Do This                                                | Not This                                              |
+| ------------------------------------------------------ | ----------------------------------------------------- |
+| Tool recognizes URL domain, calls structured API       | Tool returns raw HTML for agent to parse               |
+| Search results include API data for known domains      | Agent fetches each search result separately            |
+| Null fields filled from fallback sources inside client | Agent retries with different queries to fill gaps      |
+| Domain routing dispatches to specialized handlers      | Agent decides which tool to call per URL               |
+| Enrichment runs in parallel inside the tool            | Agent sequentially processes each result               |
+
+**The principle:** Every layer of the fetch pipeline automatically upgrades raw external data to structured, domain-appropriate content before it reaches the agent. The agent never parses HTML, never matches URL patterns, never decides which API to call for a given domain.
+
+**Three forms of augmentation:**
+
+1. **Domain dispatch** — URL patterns route to specialized API handlers (e.g., a wiki URL → structured article text via the wiki's API, instead of scraping HTML). Hints redirect the agent to a better tool when no direct handler exists.
+2. **Null-filling** — Multi-source fallback pipelines that recover missing fields from alternative endpoints or sibling records (e.g., primary API withholds fields → fallback endpoint fills the gaps).
+3. **Extraction** — Nested agent calls that distill large text blocks into focused answers (see [Nested Agent Pattern](#nested-agent-pattern)).
+
+**Customizing:** Domain dispatch routes belong in `agent/tools/`. Build them lazily to avoid circular imports. Null-filling logic lives in API client wrappers. Extraction uses `query()` from `lib/client.py` (see [Nested Agent Pattern](#nested-agent-pattern)).
 
 #### Parametric Library Design
 
@@ -251,13 +273,13 @@ uv run pytest -k "test_name"       # Pattern match
 
 **The test for a test:** Remove it. Does the remaining suite still catch real bugs? If yes, the test was dead weight.
 
-| Write Tests For | Don't Write Tests For |
-|---|---|
-| Computed properties that read from disk | Pydantic model construction |
-| Registry CRUD with state verification | Attribute access after `__init__` |
-| Error paths and graceful degradation | Default field values |
+| Write Tests For                           | Don't Write Tests For                        |
+| ----------------------------------------- | -------------------------------------------- |
+| Computed properties that read from disk   | Pydantic model construction                  |
+| Registry CRUD with state verification     | Attribute access after `__init__`            |
+| Error paths and graceful degradation      | Default field values                         |
 | Multi-step workflows (add → use → remove) | Constants (`assert "Bash" in BUILTIN_TOOLS`) |
-| Concurrency and timing behavior | Sorted output of deterministic functions |
+| Concurrency and timing behavior           | Sorted output of deterministic functions     |
 
 ### Debugging
 
@@ -529,14 +551,11 @@ lup-devtools
 
 Permissions are managed by **PreToolUse hook scripts** in `.claude/plugins/lup/hooks/scripts/`:
 
-| Hook                  | Tool            | Config                                                             |
-| --------------------- | --------------- | ------------------------------------------------------------------ |
+| Hook                  | Tool            | Config                                                            |
+| --------------------- | --------------- | ----------------------------------------------------------------- |
 | `auto_allow_fetch.py` | WebFetch        | `ALLOW_PATTERNS` (regex), `DENY_PATTERNS` (regex + reason)        |
 | `auto_allow_bash.py`  | Bash            | `RULES` list of `Allow`/`Deny` (last-match-wins, like .gitignore) |
-| `auto_allow_edits.py` | Edit            | Trivial-line counting, protected file list                         |
-| `pre_push_check.py`   | Bash (git push) | Runs pyright, ruff, pytest before push                             |
-| `check_plan_md.py`    | Bash (git push) | Warns if PLAN.md missing on feature branches                       |
-| `protect_tests.py`    | Edit\|Write     | TDD mode test protection                                          |
+| `auto_allow_edits.py` | Edit            | Trivial-line counting, protected file list                        |
 
 To add a new allowed URL or command, edit the pattern list in the corresponding hook. Non-matching inputs fall through to user prompt.
 
