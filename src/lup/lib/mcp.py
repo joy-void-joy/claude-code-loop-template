@@ -27,9 +27,11 @@ Tool naming convention:
     Example: mcp__my-server__my_tool
 """
 
+import inspect
 import logging
+import time
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Any, TypedDict, cast
+from typing import Any, TypedDict, cast, get_type_hints
 
 from claude_agent_sdk import SdkMcpTool, create_sdk_mcp_server, tool
 from claude_agent_sdk.types import McpSdkServerConfig
@@ -179,14 +181,11 @@ def create_mcp_server(
     return McpSdkServerConfig(type="sdk", name=name, instance=server)
 
 
-class LupMcpToolRequired(TypedDict):
-    """Required fields for LupMcpTool."""
-
-    sdk_tool: SdkMcpTool[Any]
-    input_model: type[BaseModel]
+class ToolError(Exception):
+    """Raise in a tool handler to return an MCP error response."""
 
 
-class LupMcpTool(LupMcpToolRequired, total=False):
+class LupMcpTool:
     """MCP tool with typed input/output models for introspection.
 
     Wraps ``SdkMcpTool`` and preserves the original BaseModel classes so that
@@ -194,59 +193,131 @@ class LupMcpTool(LupMcpToolRequired, total=False):
     for both input and output.
     """
 
-    output_model: type[BaseModel]
-    tags: list[str]
+    def __init__(
+        self,
+        sdk_tool: SdkMcpTool[Any],
+        input_model: type[BaseModel],
+        output_model: type[BaseModel] | None = None,
+        tags: list[str] | None = None,
+    ) -> None:
+        self.sdk_tool = sdk_tool
+        self.input_model = input_model
+        self.output_model = output_model
+        self.tags = tags or []
 
 
-def lup_tool[T: BaseModel](
-    name: str,
+def lup_tool(
     description: str,
-    input_model: type[T],
+    input_model: type[BaseModel] | None = None,
     output_model: type[BaseModel] | None = None,
+    *,
+    name: str | None = None,
+    tags: list[str] | None = None,
 ) -> Callable[
-    [Callable[[T], Awaitable[dict[str, Any]]]],
+    [Callable[..., Awaitable[BaseModel]]],
     LupMcpTool,
 ]:
     """Decorator for defining MCP tools with typed input/output models.
 
-    Like the SDK's ``@tool`` but accepts BaseModel classes directly,
-    stores them for introspection, and auto-validates input arguments.
+    Like the SDK's ``@tool`` but infers input/output schemas from type
+    annotations, auto-validates input, auto-serializes BaseModel output,
+    and tracks call metrics (duration, errors).
+
     The handler receives a validated model instance, not a raw dict.
+    The handler must return a BaseModel, which is auto-serialized via
+    ``mcp_success(result.model_dump())``.
+
+    Raise ``ToolError`` in the handler to return an MCP error response.
 
     Args:
-        name: Unique tool identifier (becomes ``mcp__{server}__{name}``).
         description: What/when/why — the agent's only documentation for this tool.
-        input_model: Pydantic BaseModel class defining the tool's input.
-        output_model: Optional Pydantic BaseModel class defining the tool's output.
+        input_model: Pydantic BaseModel for the tool's input.
+              Inferred from the handler's first parameter type if omitted.
+        output_model: Pydantic BaseModel for the tool's output.
+              Inferred from the handler's return type if omitted.
+        name: Unique tool identifier (becomes ``mcp__{server}__{name}``).
+              Defaults to the handler's function name.
+        tags: Optional classification tags for tool policy filtering.
 
     Returns:
         A decorator that wraps the async handler into a ``LupMcpTool``.
     """
-    from lup.lib.responses import mcp_error
+    from lup.lib.metrics import collector
+    from lup.lib.responses import mcp_error, mcp_success
 
     def decorator(
-        handler: Callable[[T], Awaitable[dict[str, Any]]],
+        handler: Callable[..., Awaitable[BaseModel]],
     ) -> LupMcpTool:
+        tool_name = name or handler.__name__
+
+        resolved_input = input_model
+        resolved_output = output_model
+
+        if resolved_input is None or resolved_output is None:
+            hints = get_type_hints(handler)
+            if resolved_input is None:
+                params = list(inspect.signature(handler).parameters.values())
+                if not params:
+                    msg = f"lup_tool '{tool_name}': handler has no parameters to infer input_model from"
+                    raise TypeError(msg)
+                param_type = hints.get(params[0].name)
+                if isinstance(param_type, type) and issubclass(param_type, BaseModel):
+                    resolved_input = param_type
+            if resolved_output is None:
+                return_type = hints.get("return")
+                if isinstance(return_type, type) and issubclass(return_type, BaseModel):
+                    resolved_output = return_type
+
+        if resolved_input is None:
+            msg = f"lup_tool '{tool_name}': cannot infer input_model from annotations"
+            raise TypeError(msg)
+
+        final_input: type[BaseModel] = resolved_input
+
         async def wrapper(args: dict[str, Any]) -> dict[str, Any]:
+            start = time.perf_counter()
+            is_error = False
             try:
-                params = input_model.model_validate(args)
-            except ValidationError as e:
-                return mcp_error(f"Invalid input: {e}")
-            return await handler(params)
+                try:
+                    params = final_input.model_validate(args)
+                except ValidationError as e:
+                    is_error = True
+                    return mcp_error(f"Invalid input: {e}")
+                try:
+                    result = await handler(params)
+                except ToolError as e:
+                    is_error = True
+                    return mcp_error(str(e))
+                if not isinstance(result, BaseModel):
+                    raise TypeError(
+                        f"lup_tool '{tool_name}': handler must return a BaseModel, "
+                        f"got {type(result).__name__}"
+                    )
+                if resolved_output is not None and not isinstance(result, resolved_output):
+                    raise TypeError(
+                        f"lup_tool '{tool_name}': expected {resolved_output.__name__}, "
+                        f"got {type(result).__name__}"
+                    )
+                return mcp_success(result.model_dump())
+            except Exception:
+                is_error = True
+                raise
+            finally:
+                duration_ms = (time.perf_counter() - start) * 1000
+                collector.record(tool_name, duration_ms, is_error)
 
         sdk = SdkMcpTool(
-            name=name,
+            name=tool_name,
             description=description,
-            input_schema=input_model.model_json_schema(),
+            input_schema=final_input.model_json_schema(),
             handler=cast(Callable[[Any], Awaitable[dict[str, Any]]], wrapper),
         )
-        result: LupMcpTool = {
-            "sdk_tool": sdk,
-            "input_model": input_model,
-        }
-        if output_model is not None:
-            result["output_model"] = output_model
-        return result
+        return LupMcpTool(
+            sdk_tool=sdk,
+            input_model=final_input,
+            output_model=resolved_output,
+            tags=tags,
+        )
 
     return decorator
 
@@ -257,11 +328,12 @@ def extract_sdk_tools(tools: list[LupMcpTool]) -> list[SdkMcpTool[Any]]:
     Use this when passing tools to ``create_mcp_server`` or
     ``create_sdk_mcp_server``, which expect ``list[SdkMcpTool]``.
     """
-    return [t["sdk_tool"] for t in tools]
+    return [t.sdk_tool for t in tools]
 
 
 __all__ = [
     "LupMcpTool",
+    "ToolError",
     "create_mcp_server",
     "create_sdk_mcp_server",
     "extract_sdk_tools",
