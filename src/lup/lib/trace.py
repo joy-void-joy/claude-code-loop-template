@@ -77,6 +77,11 @@ TOOL_COLORS = [
     "bright_blue",
     "bright_red",
 ]
+# Module-level state for color-coded tool use / result pairing.
+# Assumes single-session usage: one TraceLogger per agent run.
+# ToolUseBlock assigns a color; the matching ToolResultBlock pops it.
+# Not thread-safe — concurrent sessions should use separate modules or
+# reset state between runs.
 color_cycle = itertools.cycle(TOOL_COLORS)
 id_to_color: dict[str, str] = {}
 console = Console(highlight=False, markup=False)
