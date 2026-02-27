@@ -599,7 +599,6 @@ async def repl(
         event.current_buffer.validate_and_handle()
 
     @kb.add("c-v")
-    @kb.add("c-s-v")
     def paste_binding(event: object) -> None:
         from prompt_toolkit.key_binding import KeyPressEvent
 
