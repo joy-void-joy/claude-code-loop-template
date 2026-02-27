@@ -19,7 +19,7 @@ Structure:
   - client.py: Entry point for running agent sessions
 
 - lup/lib/: Library utilities for self-improving agents.
-  - client.py: Agent SDK client (build_client, run_query, one_shot)
+  - client.py: Agent SDK client (build_client, query)
   - history.py: Session storage and retrieval
   - hooks.py: Hook utilities and composition
   - metrics.py: Tool call tracking

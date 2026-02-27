@@ -129,7 +129,7 @@ Agents produce better output when forced to self-assess before committing. The r
 - **src/<project>/lib/trace.py**: Trace logging, output formatting, color-coded console display
 - **src/<project>/lib/metrics.py**: Tool call tracking
 - **src/<project>/lib/realtime.py**: Scheduler for persistent agents (sleep/wake, debounce, reminders)
-- **src/<project>/lib/client.py**: Centralized Agent SDK client (build_client, run_query, one_shot)
+- **src/<project>/lib/client.py**: Centralized Agent SDK client (build_client, query)
 - **src/<project>/lib/reflect.py**: Reflection gate (enforce reflect-before-output)
 - **src/<project>/lib/throttle.py**: Rate limiting (concurrency + interval)
 
@@ -367,7 +367,7 @@ src/
 └── <project>/
     ├── version.py              # Agent version tracking (bump on behavior changes)
     ├── lib/                    # Reusable abstractions (rarely modified)
-    │   ├── client.py           # Agent SDK client (build_client, run_query, one_shot)
+    │   ├── client.py           # Agent SDK client (build_client, query)
     │   ├── hooks.py            # Claude Agent SDK hook utilities
     │   ├── metrics.py          # Tool call tracking (@tracked decorator)
     │   ├── mcp.py              # MCP server creation utilities

@@ -76,7 +76,7 @@ src/
 └── lup/
     ├── version.py              # Agent version tracking (bump on behavior changes)
     ├── lib/                    # Reusable abstractions (rarely modified)
-    │   ├── client.py           # Agent SDK client (build_client, run_query, one_shot)
+    │   ├── client.py           # Agent SDK client (build_client, query)
     │   ├── cache.py            # TTL caching for API responses
     │   ├── history.py          # Session storage/retrieval
     │   ├── hooks.py            # Claude Agent SDK hook utilities
@@ -149,6 +149,39 @@ Agents produce better output when forced to self-assess before committing. Three
 **Customizing:** The gate in `lib/reflect.py` is domain-neutral and parametric. The reflection tool and `ReflectInput` in `agent/tools/reflect.py` are domain-specific — add fields for your domain. The reviewer prompt should target your domain's common failure modes.
 
 **Skip reviewer:** Set `skip_reviewer=True` for speed-sensitive or trivial tasks. The reviewer adds latency but catches calibration errors and reasoning gaps.
+
+#### Nested Agent Pattern
+
+Distinct from **subagents** (SDK-native `Task()` dispatch, defined upfront in `get_subagents()`, same session). A nested agent is a tool that internally creates an independent SDK client, runs it, and folds the result back into its tool response.
+
+| Aspect | Subagent | Nested Agent |
+|---|---|---|
+| Definition | Upfront in `get_subagents()` | On-demand inside a tool handler |
+| Client | Main agent's SDK session | Independent client via `query()` |
+| Session | Shared — same trace, same metrics | Isolated — no session persistence |
+| Return | SDK `ResultMessage` (structured) | Scalar result augmented by the tool |
+| Use case | Specialized long-running work | Quick generation, review, parsing |
+
+**The augmentation pattern:** The tool handler post-processes the nested agent's output before returning it. The nested agent produces raw material; the tool shapes it into the MCP response:
+
+```python
+@lup_tool("Review code quality and return structured assessment")
+async def review(params: ReviewInput) -> ReviewOutput:
+    collector = await query(
+        build_review_prompt(params),
+        model="sonnet",
+        system_prompt=REVIEWER_PROMPT,
+        tools=["Read", "Grep"],
+        permission_mode="bypassPermissions",
+        max_turns=5,
+    )
+    # Augment: fold nested agent's text into structured tool output
+    return ReviewOutput(critique=collector.text or "", score=compute_score(collector))
+```
+
+**Library support:** `query()` in `lib/client.py` handles the full pipeline (build client → query → collect). Session persistence is automatically disabled. Use `collector.text` for text extraction, `collector.output(T)` for structured output, or pass `output_type=T` to `query()` to get `T | None` directly.
+
+**When to use each:** The axis is **context separation**. **Subagents** extend the main agent's thinking — same session, shared context, like a specialized lobe that makes reasoning more efficient. **Nested agents** are for truly separable work — the two contexts shouldn't pollute each other. The main agent doesn't need the nested agent's reasoning chain, just its conclusion. The tool handler acts as a context boundary.
 
 #### Parametric Library Design
 

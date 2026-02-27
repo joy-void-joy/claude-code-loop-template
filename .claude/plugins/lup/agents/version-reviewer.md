@@ -63,7 +63,7 @@ Read it carefully. Note:
 uv run lup-devtools metrics summary
 ```
 
-Filter `notes/scores.csv` by the `agent_version` column to isolate this version's data.
+Load session JSON files from `notes/traces/<version>/sessions/` to get scores and outcomes for this version's data. Each JSON contains fields like `output.confidence`, `outcome`, `cost_usd`, `duration_seconds`, and `tool_metrics`.
 
 ### 4. Read Traces for Best and Worst Sessions
 
