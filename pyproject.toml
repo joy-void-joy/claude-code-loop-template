@@ -5,6 +5,25 @@ description = "Self-improving agent template with feedback loop, built with the 
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.14"
+authors = [{ name = "Joy Void Joy", email = "joy.void.joy@gmail.com" }]
+keywords = [
+    "agent",
+    "ai",
+    "claude",
+    "feedback-loop",
+    "llm",
+    "self-improving",
+    "template",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Typing :: Typed",
+]
 dependencies = [
     "claude-agent-sdk>=0.1.26",
     "docker>=7.1.0",
@@ -21,6 +40,11 @@ dependencies = [
 [project.scripts]
 lup = "lup.environment.cli.__main__:app"
 lup-devtools = "lup.devtools.main:app"
+
+[project.urls]
+Homepage = "https://github.com/joy-void-joy/lup"
+Repository = "https://github.com/joy-void-joy/lup"
+Issues = "https://github.com/joy-void-joy/lup/issues"
 
 [dependency-groups]
 dev = [
