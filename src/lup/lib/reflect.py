@@ -16,7 +16,8 @@ Persistent agents: gate ``sleep`` on reflection (via ``Scheduler.meta_gate``).
 
 Usage::
 
-    from lup.lib import ReflectionGate, create_reflection_gate, merge_hooks
+    from lup.lib.reflect import ReflectionGate, create_reflection_gate
+    from lup.lib.hooks import merge_hooks
 
     gate = ReflectionGate()
     gate_hooks = create_reflection_gate(
@@ -51,23 +52,16 @@ class ReflectionGate:
     in persistent mode).
     """
 
-    __slots__ = ("_reflected",)
-
     def __init__(self) -> None:
-        self._reflected: bool = False
-
-    @property
-    def reflected(self) -> bool:
-        """Whether reflection has been recorded this cycle."""
-        return self._reflected
+        self.reflected: bool = False
 
     def mark_reflected(self) -> None:
         """Record that reflection has occurred."""
-        self._reflected = True
+        self.reflected = True
 
     def reset(self) -> None:
         """Require fresh reflection (start of new cycle)."""
-        self._reflected = False
+        self.reflected = False
 
 
 def create_reflection_gate(

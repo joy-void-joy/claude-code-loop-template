@@ -31,7 +31,7 @@ def load_all_sessions(version: str | None = None) -> list[dict[str, Any]]:
     return sessions
 
 
-def _load_for_versions(versions: list[str] | None) -> list[dict[str, Any]]:
+def load_for_versions(versions: list[str] | None) -> list[dict[str, Any]]:
     """Load sessions for a resolved version list (None = all)."""
     if versions is None:
         return load_all_sessions()
@@ -54,7 +54,7 @@ def summary(
     effective, warning = resolve_version(version, all_versions)
     if warning:
         typer.echo(warning)
-    sessions = _load_for_versions(effective)
+    sessions = load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         typer.echo("Checked all version directories under notes/traces/")
@@ -108,7 +108,7 @@ def tools(
     effective, warning = resolve_version(version, all_versions)
     if warning:
         typer.echo(warning)
-    sessions = _load_for_versions(effective)
+    sessions = load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
@@ -161,7 +161,7 @@ def errors(
     effective, warning = resolve_version(version, all_versions)
     if warning:
         typer.echo(warning)
-    sessions = _load_for_versions(effective)
+    sessions = load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)
@@ -209,7 +209,7 @@ def trends(
     effective, warning = resolve_version(version, all_versions)
     if warning:
         typer.echo(warning)
-    sessions = _load_for_versions(effective)
+    sessions = load_for_versions(effective)
     if not sessions:
         typer.echo("No sessions found")
         raise typer.Exit(1)

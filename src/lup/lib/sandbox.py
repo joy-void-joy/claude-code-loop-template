@@ -186,26 +186,26 @@ class ReplSession:
         container: Container,
         environment: dict[str, str],
     ) -> None:
-        self._client = client
-        self._container = container
-        self._environment = environment
-        self._sock: Any = None
-        self._exec_id: str | None = None
+        self.client = client
+        self.container = container
+        self.environment = environment
+        self.sock: Any = None
+        self.exec_id: str | None = None
 
     def start(self) -> None:
         """Start the REPL process and verify it responds."""
-        exec_result: dict[str, str] = self._client.api.exec_create(
-            self._container.id,
+        exec_result: dict[str, str] = self.client.api.exec_create(
+            self.container.id,
             ["python", "-u", "/workspace/.repl_server.py"],
             stdin=True,
             stdout=True,
             stderr=True,
             tty=False,
             workdir="/workspace",
-            environment=self._environment or None,
+            environment=self.environment or None,
         )
-        self._exec_id = exec_result["Id"]
-        self._sock = self._client.api.exec_start(self._exec_id, socket=True)
+        self.exec_id = exec_result["Id"]
+        self.sock = self.client.api.exec_start(self.exec_id, socket=True)
         result = self.execute("pass", timeout_seconds=10)
         if result["exit_code"] != 0:
             raise RuntimeError(f"REPL startup failed: {result['stderr']}")
@@ -213,20 +213,20 @@ class ReplSession:
 
     def stop(self) -> None:
         """Close the socket connection to the REPL."""
-        if self._sock is not None:
+        if self.sock is not None:
             try:
-                response = getattr(self._sock, "_response", None)
+                response = getattr(self.sock, "_response", None)
                 if response is not None:
                     response.close()
-                self._sock.close()
+                self.sock.close()
             except Exception:
                 pass
-            self._sock = None
-        self._exec_id = None
+            self.sock = None
+        self.exec_id = None
 
     def execute(self, code: str, timeout_seconds: int) -> ExecuteCodeResult:
         """Send code to the REPL and return the result."""
-        if self._sock is None:
+        if self.sock is None:
             raise SandboxNotInitializedError("REPL not connected")
 
         request = json.dumps({"code": code, "timeout": timeout_seconds}) + "\n"
@@ -253,11 +253,11 @@ class ReplSession:
     def send(self, data: bytes) -> None:
         """Write raw bytes to the exec socket stdin."""
         try:
-            sock = getattr(self._sock, "_sock", self._sock)
+            sock = getattr(self.sock, "_sock", self.sock)
             if hasattr(sock, "sendall"):
                 sock.sendall(data)
             else:
-                self._sock.write(data)
+                self.sock.write(data)
         except (BrokenPipeError, OSError) as e:
             raise ReplCrashedError(f"REPL write failed: {e}") from e
 
@@ -270,11 +270,11 @@ class ReplSession:
                 raise ReplCrashedError("Timed out waiting for REPL response")
             self.set_socket_timeout(remaining)
 
-            stream_type, size = next_frame_header(self._sock)
+            stream_type, size = next_frame_header(self.sock)
             if size < 0:
                 raise ReplCrashedError("REPL EOF")
 
-            data = read_exactly(self._sock, size)
+            data = read_exactly(self.sock, size)
             match stream_type:
                 case 1:  # stdout
                     stdout_buf += data
@@ -294,7 +294,7 @@ class ReplSession:
 
     def set_socket_timeout(self, timeout: float) -> None:
         """Set timeout on the underlying socket."""
-        sock = self._sock
+        sock = self.sock
         for candidate in [sock, getattr(sock, "_sock", None)]:
             if hasattr(candidate, "settimeout"):
                 candidate.settimeout(timeout)
@@ -329,57 +329,57 @@ class Sandbox:
         pre_install: Sequence[str] | None = DEFAULT_PRE_INSTALL,
     ) -> None:
         suffix = session_id.replace("/", "-")
-        self._container_name = f"lup-sandbox-{suffix}"
-        self._docker_image = docker_image
-        self._volume_name = f"lup-sandbox-ws-{suffix}"
-        self._shared_dir = Path(shared_dir).resolve()
-        self._network_mode = network_mode
-        self._timeout_seconds = timeout_seconds
-        self._pre_install = list(pre_install) if pre_install is not None else None
-        self._container: Container | None = None
-        self._client: docker.DockerClient | None = None
-        self._repl: ReplSession | None = None
+        self.container_name = f"lup-sandbox-{suffix}"
+        self.docker_image = docker_image
+        self.volume_name = f"lup-sandbox-ws-{suffix}"
+        self.shared_dir = Path(shared_dir).resolve()
+        self.network_mode = network_mode
+        self.timeout_seconds = timeout_seconds
+        self.pre_install = list(pre_install) if pre_install is not None else None
+        self.active_container: Container | None = None
+        self.docker_client: docker.DockerClient | None = None
+        self.repl: ReplSession | None = None
 
     @property
     def container(self) -> Container:
-        """Get the active container."""
-        if self._container is None:
+        """Get the active container (raises if not initialized)."""
+        if self.active_container is None:
             raise SandboxNotInitializedError(
                 "Sandbox not initialized. Use 'with Sandbox() as sandbox:' first."
             )
-        return self._container
+        return self.active_container
 
     @property
     def is_active(self) -> bool:
         """Check if the sandbox container is currently running."""
-        return self._container is not None
+        return self.active_container is not None
 
     def remove_stale_container(self) -> None:
         """Remove a pre-existing container with the same name, if any."""
-        if self._client is None:
+        if self.docker_client is None:
             return
         try:
-            old = self._client.containers.get(self._container_name)
-            logger.warning("Removing stale container: %s", self._container_name)
+            old = self.docker_client.containers.get(self.container_name)
+            logger.warning("Removing stale container: %s", self.container_name)
             old.remove(force=True)
         except NotFound:
             pass
 
     def destroy_container(self) -> None:
         """Stop and remove the current container and its session volume."""
-        if self._container is None:
+        if self.active_container is None:
             return
         try:
-            self._container.stop(timeout=5)
-            self._container.remove()
+            self.active_container.stop(timeout=5)
+            self.active_container.remove()
         except (APIError, DockerException) as e:
             logger.warning("Failed to cleanup container: %s", e)
         finally:
-            self._container = None
+            self.active_container = None
 
-        if self._client is not None:
+        if self.docker_client is not None:
             try:
-                vol = self._client.volumes.get(self._volume_name)
+                vol = self.docker_client.volumes.get(self.volume_name)
                 vol.remove()
             except (NotFound, APIError):
                 pass
@@ -398,10 +398,10 @@ class Sandbox:
 
     def run_pre_install(self) -> None:
         """Pre-install packages for faster agent execution."""
-        if self._pre_install is None:
+        if self.pre_install is None:
             return
-        logger.info("Pre-installing packages: %s", self._pre_install)
-        cmd = ["uv", "pip", "install", "--system", *self._pre_install]
+        logger.info("Pre-installing packages: %s", self.pre_install)
+        cmd = ["uv", "pip", "install", "--system", *self.pre_install]
         result = self.container.exec_run(cmd, demux=False)
         if result.exit_code != 0:
             logger.warning(
@@ -418,49 +418,49 @@ class Sandbox:
         Creates a new Docker container for code execution. Removes any
         stale container with the same name first.
         """
-        self._client = docker.from_env()
+        self.docker_client = docker.from_env()
 
         self.remove_stale_container()
 
-        self._shared_dir.mkdir(parents=True, exist_ok=True)
+        self.shared_dir.mkdir(parents=True, exist_ok=True)
 
         logger.info(
             "Creating sandbox container: %s (network=%s)",
-            self._container_name,
-            self._network_mode,
+            self.container_name,
+            self.network_mode,
         )
-        logger.info("Mounting shared directory: %s -> /shared", self._shared_dir)
-        self._container = self._client.containers.run(
-            self._docker_image,
-            name=self._container_name,
+        logger.info("Mounting shared directory: %s -> /shared", self.shared_dir)
+        self.active_container = self.docker_client.containers.run(
+            self.docker_image,
+            name=self.container_name,
             command="sleep infinity",
             detach=True,
             volumes={
-                self._volume_name: {"bind": "/workspace", "mode": "rw"},
-                str(self._shared_dir): {"bind": "/shared", "mode": "rw"},
+                self.volume_name: {"bind": "/workspace", "mode": "rw"},
+                str(self.shared_dir): {"bind": "/shared", "mode": "rw"},
             },
             working_dir="/workspace",
             mem_limit="1g",
-            network_mode=self._network_mode,
+            network_mode=self.network_mode,
         )
 
-        if self._network_mode != "none":
+        if self.network_mode != "none":
             self.run_pre_install()
 
         self.write_repl_script()
-        assert self._client is not None
-        assert self._container is not None
-        self._repl = ReplSession(self._client, self._container, {})
-        self._repl.start()
+        assert self.docker_client is not None
+        assert self.active_container is not None
+        self.repl = ReplSession(self.docker_client, self.active_container, {})
+        self.repl.start()
 
     def stop(self) -> None:
         """Stop and remove the sandbox container."""
-        if self._repl is not None:
-            self._repl.stop()
-            self._repl = None
+        if self.repl is not None:
+            self.repl.stop()
+            self.repl = None
         logger.info("Destroying sandbox container")
         self.destroy_container()
-        self._client = None
+        self.docker_client = None
 
     def __enter__(self) -> Self:
         """Enter context manager, starting the sandbox."""
@@ -501,21 +501,21 @@ class Sandbox:
         Returns:
             Result containing exit code, stdout, stderr, and duration.
         """
-        if self._repl is None:
+        if self.repl is None:
             raise SandboxNotInitializedError("REPL not initialized")
         if timeout_seconds is None:
-            timeout_seconds = self._timeout_seconds
+            timeout_seconds = self.timeout_seconds
 
         try:
-            return self._repl.execute(code, timeout_seconds)
+            return self.repl.execute(code, timeout_seconds)
         except ReplCrashedError:
             logger.warning("REPL crashed, restarting")
-            self._repl.stop()
+            self.repl.stop()
             try:
-                self._repl.start()
+                self.repl.start()
             except (RuntimeError, DockerException, APIError, SocketError):
                 logger.exception("REPL restart failed")
-                self._repl = None
+                self.repl = None
                 raise SandboxNotInitializedError("REPL restart failed")
             return ExecuteCodeResult(
                 exit_code=1,
@@ -558,7 +558,7 @@ class Sandbox:
         Returns:
             List of MCP tools for code execution and package installation.
         """
-        timeout_seconds = self._timeout_seconds
+        timeout_seconds = self.timeout_seconds
 
         @tool(
             "execute_code",

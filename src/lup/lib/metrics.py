@@ -19,7 +19,7 @@ from collections.abc import Callable, Coroutine
 from functools import wraps
 from typing import TypedDict, cast
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
@@ -97,26 +97,25 @@ class ToolMetrics(BaseModel):
         )
 
 
-class MetricsCollector(BaseModel):
+class MetricsCollector:
     """Collects metrics for all tools."""
 
-    _metrics: dict[str, ToolMetrics] = PrivateAttr(
-        default_factory=lambda: defaultdict(ToolMetrics)
-    )
-    _session_start: float = PrivateAttr(default_factory=time.time)
+    def __init__(self) -> None:
+        self.metrics: dict[str, ToolMetrics] = defaultdict(ToolMetrics)
+        self.session_start: float = time.time()
 
     def record(
         self, tool_name: str, duration_ms: float, is_error: bool = False
     ) -> None:
         """Record a tool call."""
-        self._metrics[tool_name].record_call(duration_ms, is_error)
+        self.metrics[tool_name].record_call(duration_ms, is_error)
 
     def get_summary(self) -> MetricsSummary:
         """Get a summary of all metrics."""
-        total_calls = sum(m.call_count for m in self._metrics.values())
-        total_errors = sum(m.error_count for m in self._metrics.values())
-        total_duration = sum(m.total_duration_ms for m in self._metrics.values())
-        session_duration = time.time() - self._session_start
+        total_calls = sum(m.call_count for m in self.metrics.values())
+        total_errors = sum(m.error_count for m in self.metrics.values())
+        total_duration = sum(m.total_duration_ms for m in self.metrics.values())
+        session_duration = time.time() - self.session_start
 
         return MetricsSummary(
             session_duration_seconds=round(session_duration, 2),
@@ -124,8 +123,8 @@ class MetricsCollector(BaseModel):
             total_errors=total_errors,
             overall_error_rate=f"{total_errors / max(1, total_calls):.1%}",
             total_tool_time_ms=round(total_duration, 2),
-            tools_used=len(self._metrics),
-            by_tool={name: m.to_dict() for name, m in self._metrics.items()},
+            tools_used=len(self.metrics),
+            by_tool={name: m.to_dict() for name, m in self.metrics.items()},
         )
 
     def log_summary(self, level: int = logging.INFO) -> None:
@@ -141,12 +140,12 @@ class MetricsCollector(BaseModel):
 
     def reset(self) -> None:
         """Reset all metrics."""
-        self._metrics.clear()
-        self._session_start = time.time()
+        self.metrics.clear()
+        self.session_start = time.time()
 
 
 # Global metrics collector
-_collector = MetricsCollector()
+collector = MetricsCollector()
 
 
 def tracked[**P, T](
@@ -183,12 +182,12 @@ def tracked[**P, T](
                 ):
                     is_error = True
                 return result
-            except Exception:
+            except BaseException:
                 is_error = True
                 raise
             finally:
                 duration_ms = (time.perf_counter() - start) * 1000
-                _collector.record(name, duration_ms, is_error)
+                collector.record(name, duration_ms, is_error)
 
         return wrapper
 
@@ -197,14 +196,14 @@ def tracked[**P, T](
 
 def log_metrics_summary() -> None:
     """Log a summary of all tool metrics."""
-    _collector.log_summary()
+    collector.log_summary()
 
 
 def get_metrics_summary() -> MetricsSummary:
     """Get a summary of all tool metrics."""
-    return _collector.get_summary()
+    return collector.get_summary()
 
 
 def reset_metrics() -> None:
     """Reset all tool metrics."""
-    _collector.reset()
+    collector.reset()
