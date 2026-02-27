@@ -19,9 +19,7 @@ Usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Self
-
-from pydantic import BaseModel, PrivateAttr, model_validator
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from lup.agent.config import Settings
@@ -62,7 +60,7 @@ BUILTIN_TOOLS: frozenset[str] = frozenset(
 # })
 
 
-class ToolPolicy(BaseModel):
+class ToolPolicy:
     """Centralized policy for tool availability.
 
     Determines which tools are available based on:
@@ -70,38 +68,30 @@ class ToolPolicy(BaseModel):
     - Mode configuration (e.g., restricted mode)
     - Session context (e.g., allow certain tools only in some contexts)
 
-    Customize the model_validator to define your exclusion logic.
+    Customize ``__init__`` to define your exclusion logic.
     """
 
-    # API keys - add fields for your domain
-    # exa_api_key: str | None = None
-    # fred_api_key: str | None = None
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        restricted_mode: bool = False,
+    ) -> None:
+        self.settings = settings
+        self.restricted_mode = restricted_mode
 
-    # Mode flags
-    restricted_mode: bool = False
-
-    # Computed excluded tools (populated by validator)
-    _excluded_tools: frozenset[str] = PrivateAttr(default_factory=frozenset)
-
-    @model_validator(mode="after")
-    def compute_excluded_tools(self) -> Self:
-        """Compute excluded tools based on configuration.
-
-        Customize this for your domain's conditional tool availability.
-        """
         excluded: set[str] = set()
 
         # TODO: Add your exclusion logic
         # Example:
-        # if not self.exa_api_key:
+        # if not settings.exa_api_key:
         #     excluded.update(EXA_TOOLS)
-        # if not self.fred_api_key:
+        # if not settings.fred_api_key:
         #     excluded.update(FRED_TOOLS)
         # if self.restricted_mode:
         #     excluded.update(LIVE_DATA_TOOLS)
 
-        self._excluded_tools = frozenset(excluded)
-        return self
+        self.excluded_tools: frozenset[str] = frozenset(excluded)
 
     @classmethod
     def from_settings(
@@ -120,9 +110,7 @@ class ToolPolicy(BaseModel):
             ToolPolicy configured based on settings.
         """
         return cls(
-            # TODO: Pass your API keys
-            # exa_api_key=settings.exa_api_key,
-            # fred_api_key=settings.fred_api_key,
+            settings,
             restricted_mode=restricted_mode,
         )
 
@@ -174,10 +162,10 @@ class ToolPolicy(BaseModel):
         # tools.update(YOUR_DOMAIN_TOOLS)
 
         # Remove excluded tools
-        tools -= self._excluded_tools
+        tools -= self.excluded_tools
 
         return sorted(tools)
 
     def is_tool_available(self, tool_name: str) -> bool:
         """Check if a specific tool is available under this policy."""
-        return tool_name not in self._excluded_tools
+        return tool_name not in self.excluded_tools
