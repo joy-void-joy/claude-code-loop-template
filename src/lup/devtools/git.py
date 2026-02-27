@@ -7,6 +7,7 @@ Examples::
 """
 
 import json
+import logging
 from pathlib import Path
 
 import sh
@@ -14,6 +15,7 @@ import typer
 
 from lup.lib.paths import iter_session_dirs, traces_path
 
+logger = logging.getLogger(__name__)
 app = typer.Typer(no_args_is_help=True)
 
 
@@ -99,8 +101,8 @@ def commit_session(session_id: str, *, dry_run: bool = False) -> bool:
     for path in paths:
         try:
             git.add(path)
-        except sh.ErrorReturnCode:
-            pass
+        except sh.ErrorReturnCode as e:
+            logger.warning("Failed to stage %s: %s", path, e)
 
     diff = str(git.diff("--cached", "--stat", _ok_code=[0, 1])).strip()
     if not diff:
